@@ -1,0 +1,48 @@
+# SafeConfig Duo (GTGuardian) - GitLab Duo Agent Configuration
+# This manifest defines the "Eyes and Hands" of your AI Agent.
+
+# 1. Identity and Scope
+name: "SafeConfig Duo"
+description: "Autonomous Risk & Compliance Agent for Feature Flag Orchestration."
+
+# 2. Tools: These are the functions the AI can call to take action
+tools:
+  - name: "analyze_deployment_risk"
+    description: "Analyzes a code diff and calculates deployment risk based on feature sensitivity and live traffic."
+    url: "https://your-backend-url.a.run.app/api/ai/analyze-risk"
+    method: "POST"
+    # Defines the JSON schema the AI must follow when calling your backend
+    parameters:
+      type: "object"
+      properties:
+        feature_key:
+          type: "string"
+          description: "The unique identifier for the feature flag (snake_case)."
+        code_diff:
+          type: "string"
+          description: "The git diff of the changes being proposed."
+        environment:
+          type: "string"
+          enum: ["Development", "Staging", "Production"]
+          description: "The target deployment environment."
+      required: ["feature_key", "code_diff"]
+
+  - name: "get_flag_analytics"
+    description: "Retrieves live 'Blast Radius' data (user hits) for a specific feature flag."
+    url: "https://your-backend-url.a.run.app/api/flags/analytics"
+    method: "GET"
+
+# 3. Triggers: Automatically wake up the agent on specific events
+# This is key for the "Autonomous" requirement of the Grand Prize.
+events:
+  merge_requests:
+    - action: "open"
+      description: "Trigger an automated risk audit when a new MR is created."
+    - action: "push"
+      description: "Re-evaluate risk if new code is pushed to an active MR."
+
+# 4. Permissions (Human-in-the-Loop)
+# Ensures only Managers can authorize 'High Risk' overrides.
+governance:
+  require_manager_approval: true
+  risk_threshold: 8

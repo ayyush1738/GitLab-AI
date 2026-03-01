@@ -1,0 +1,46 @@
+# --- Core Web Framework ---
+Flask==3.1.2
+flask-cors==6.0.2
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.1.0
+Flask-Login==0.6.3
+Werkzeug==3.1.5
+
+# --- Authentication (GitHub OAuth) ---
+Flask-Dance[sqla]==7.1.0
+sqlalchemy-utils==0.41.2
+cryptography==46.0.5
+
+# --- Database Layer ---
+SQLAlchemy==2.0.46
+psycopg2-binary==2.9.10
+
+# --- AI & Agent Orchestration (LangChain) ---
+# We loosen these versions slightly to let pip resolve the internal conflicts
+langchain>=0.3.18
+langchain-core>=0.3.37
+langchain-community>=0.3.17
+langchain-openai>=0.3.6
+langchain-anthropic>=0.3.7
+langchain-google-genai>=2.0.10
+
+# --- Intelligence Providers ---
+anthropic==0.47.1
+google-generativeai==0.8.6
+google-genai==1.63.0
+groq==1.0.0
+
+# --- Data Validation & Serialization ---
+pydantic==2.12.5
+pydantic[email]==2.12.5
+pydantic-settings==2.13.0
+
+# --- Logging & Performance ---
+loguru==0.7.3
+tenacity==9.1.4
+httpx==0.28.1
+requests==2.32.5
+
+# --- Production Server ---
+gunicorn==23.0.0
+python-dotenv==1.2.1
