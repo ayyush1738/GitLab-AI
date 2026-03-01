@@ -49,6 +49,7 @@ def setup_db():
     """
     try:
         with app.app_context():
+            # Creates tables if they don't exist
             db.create_all()
             seed_database_internal()
         return {
@@ -59,15 +60,20 @@ def setup_db():
         logger.error(f"Setup-db endpoint failed: {e}")
         return {"status": "error", "message": str(e)}, 500
 
-# Entry point for local development
+# Entry point for local development and Cloud Run
 if __name__ == "__main__":
     # Local development settings
     # OAUTHLIB_INSECURE_TRANSPORT allows OAuth over HTTP (Local only)
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
-    logger.info("SafeConfig AI Backend starting in local mode...")
+    # 🚀 CLOUD RUN OPTIMIZATION:
+    # Google Cloud Run injects the PORT environment variable.
+    # We default to 5000 for local dev but must use os.environ for the cloud.
+    port = int(os.environ.get("PORT", 5000))
+    
+    logger.info(f"SafeConfig AI Backend starting on port {port}...")
     app.run(
         host="0.0.0.0", 
-        port=5000, 
+        port=port, 
         debug=True
     )
