@@ -28,6 +28,7 @@ class TrafficService:
             time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
 
             # 3. Query hit counts
+            # Uses .scalar() to return the count as a single integer
             hits_24h = db.session.query(func.count(FlagEvaluation.id)).filter(
                 FlagEvaluation.flag_id == flag.id,
                 FlagEvaluation.environment_name == environment.capitalize(),
@@ -40,7 +41,7 @@ class TrafficService:
             ).scalar() or 0
 
             # 4. Contextualize for the AI
-            # High traffic (e.g. > 1000) will trigger higher risk scores in ai_agent.py
+            # High traffic (> 1000) triggers higher risk scores in the SafeConfigAgent logic
             context = {
                 "hits_24h": hits_24h,
                 "total_hits": total_hits,
@@ -78,7 +79,7 @@ class TrafficService:
     def cleanup_old_metrics(days: int = 30):
         """
         Maintenance: Removes metrics older than X days to keep DB fast.
-        Important for 'Sustainable Design' prize ($3,000 bonus).
+        Important for 'Sustainable Design' prize ($3,000 bonus category).
         """
         try:
             cutoff = datetime.now(timezone.utc) - timedelta(days=days)

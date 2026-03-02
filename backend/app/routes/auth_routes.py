@@ -22,10 +22,14 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
-    """Ends the local session and clears the login cookie."""
+    """
+    Ends the local session and clears the login cookie.
+    FIX: Points to auth.login or a home route to avoid BuildErrors.
+    """
     logout_user()
     flash("You have been logged out.")
-    return redirect(url_for("health_check"))
+    # If you have a landing page, use that; otherwise, redirect to login
+    return redirect(url_for("auth.login"))
 
 @auth_bp.route("/me")
 def get_current_user():
@@ -66,7 +70,7 @@ def github_logged_in(blueprint, token):
     github_user_id = str(github_info["id"])
     github_login = github_info["login"]
 
-    # 2. Check for existing link
+    # 2. Check for existing link in the OAuth table
     query = OAuth.query.filter_by(
         provider=blueprint.name,
         provider_user_id=github_user_id,
@@ -86,9 +90,13 @@ def github_logged_in(blueprint, token):
     else:
         # Fallback for email if GitHub profile is private
         email = github_info.get("email")
+        
+        # 🚀 SECURITY GATEKEEPER:
+        # Default role is 'developer'. Promotion to 'manager' 
+        # happens via DB seeding or manual admin action.
         user = User(
             email=email or f"{github_login}@github.com",
-            role="developer" # Default security role
+            role="developer" 
         )
         
         oauth.user = user

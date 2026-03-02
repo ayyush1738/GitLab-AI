@@ -36,7 +36,7 @@ class OAuth(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     provider = db.Column(db.String(50), nullable=False)
     provider_user_id = db.Column(db.String(256), unique=True, nullable=False)
-    token = db.Column(JSONB, nullable=False)
+    token = db.Column(JSONB, nullable=False) # Native PG JSONB for performance
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
 class FeatureFlag(db.Model):
@@ -99,6 +99,7 @@ class FlagEvaluation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     flag_id = db.Column(db.Integer, db.ForeignKey('feature_flags.id'), nullable=False)
     environment_name = db.Column(db.String(50), default="Production")
+    # Indexed for high-speed time-series queries
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 class AuditLog(db.Model):
@@ -113,7 +114,7 @@ class AuditLog(db.Model):
     env_name = db.Column(db.String(50))
     action = db.Column(db.String(100)) # e.g., 'AI_BLOCK', 'MANAGER_OVERRIDE'
     reason = db.Column(db.Text)
-    ai_metadata = db.Column(JSONB, nullable=True) # Stores the full LangChain report
+    ai_metadata = db.Column(JSONB, nullable=True) # Full LangChain audit report
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     def to_dict(self):

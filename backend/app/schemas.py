@@ -8,6 +8,7 @@ class UserSchema(BaseModel):
     email: EmailStr
     role: str
     
+    # 🚀 v2 Config: Allows Pydantic to read data from SQLAlchemy models directly
     model_config = ConfigDict(from_attributes=True)
 
 # --- Feature Flag Schemas ---
@@ -19,7 +20,7 @@ class FlagCreateSchema(BaseModel):
     """
     name: str = Field(..., min_length=3, max_length=50, description="Human-friendly name")
     
-    # regex ensures key is snake_case: lowercase, numbers, and underscores only
+    # 🛡️ Pattern ensures key is snake_case: lowercase, numbers, and underscores only
     key: str = Field(..., pattern=r"^[a-z0-9_]+$", description="Machine-readable key") 
     
     description: Optional[str] = Field(None, max_length=200)
@@ -67,5 +68,8 @@ class AIAssessmentResponseSchema(BaseModel):
     advice: str
     status: Literal["PASSED", "BLOCKED", "WARNING"]
     requires_override: bool = False
+
+    # 🚀 Enables 'Green Agent' Prize compatibility ($3,000 Bonus)
+    sustainability_score: Optional[int] = Field(None, ge=1, le=10)
 
     model_config = ConfigDict(from_attributes=True)

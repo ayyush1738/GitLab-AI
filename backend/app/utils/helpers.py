@@ -1,6 +1,8 @@
+import json
+import logging
+from datetime import datetime, timezone
 from flask import jsonify
 from loguru import logger
-import json
 
 def api_response(success: bool, message: str, data: any = None, status_code: int = 200):
     """
@@ -16,7 +18,7 @@ def api_response(success: bool, message: str, data: any = None, status_code: int
         "success": success,
         "message": message,
         "data": data,
-        "timestamp": None # Optional: Add ISO timestamp here if needed
+        "timestamp": datetime.now(timezone.utc).isoformat() # 🚀 Added for Professional Audit Trails
     }
     return jsonify(response), status_code
 
@@ -32,29 +34,39 @@ def parse_pydantic_errors(validation_error):
     Converts complex Pydantic validation objects into a simple 
     list of field-specific errors for the UI.
     """
-    return [
-        {"field": str(err["loc"][-1]), "message": err["msg"]}
-        for err in validation_error.errors()
-    ]
+    try:
+        return [
+            {"field": str(err["loc"][-1]), "message": err["msg"]}
+            for err in validation_error.errors()
+        ]
+    except Exception as e:
+        logger.error(f"Pydantic parse failed: {e}")
+        return [{"field": "unknown", "message": "Validation failed"}]
 
 def clean_llm_json(raw_text: str) -> dict:
     """
     Specialized helper for the AI Agent.
     LLMs often wrap JSON in markdown blocks (```json ... ```).
-    This function extracts and parses the raw JSON string safely.
+    This extracts and parses the raw JSON string safely.
     """
     try:
-        # Remove potential Markdown formatting
-        if "```json" in raw_text:
-            raw_text = raw_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw_text:
-            raw_text = raw_text.split("```")[1].split("```")[0].strip()
+        # Step 1: Remove potential Markdown formatting
+        cleaned = raw_text.strip()
+        if "```json" in cleaned:
+            cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned:
+            cleaned = cleaned.split("```")[1].split("```")[0].strip()
         
-        return json.loads(raw_text)
+        # Step 2: Parse and return
+        return json.loads(cleaned)
+        
     except (ValueError, IndexError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to parse LLM JSON: {e} | Raw: {raw_text}")
+        logger.error(f"Failed to parse LLM JSON: {e} | Raw text received: {raw_text[:100]}...")
+        
+        # 🛡️ Fail-Safe: Never return a raw error to the Agent logic
         return {
             "risk_score": 5,
-            "advice": "Error parsing AI response. Defaulting to manual review.",
-            "risk_level": "medium"
+            "advice": "AI response was malformed. Defaulting to safe manual review.",
+            "risk_level": "medium",
+            "status": "PARSE_ERROR"
         }

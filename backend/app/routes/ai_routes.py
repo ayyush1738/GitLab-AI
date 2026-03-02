@@ -2,7 +2,7 @@ import os
 import logging
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import current_user
-from app.services.langchain_agent import SafeConfigAgent
+from app.services.ai_agent import SafeConfigAgent
 from app.services.traffic_service import TrafficService
 from app.utils.helpers import api_response, format_error
 

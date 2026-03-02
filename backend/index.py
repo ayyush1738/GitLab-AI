@@ -1,8 +1,13 @@
 import os
+import sys
 import logging
 from app import create_app, db
 from app.models import Environment, User
 from loguru import logger
+
+# 🚀 Add current directory to system path
+# This ensures the 'app' package is discoverable regardless of where the script is called.
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Initialize the Flask App Factory
 app = create_app()
@@ -14,8 +19,9 @@ def seed_database_internal():
     """
     try:
         # 1. Create Default Environments
+        # Ensures the AI Agent has targets (Dev/Staging/Prod) to audit.
         if not Environment.query.first():
-            logger.info("Initializing core environments: Dev, Staging, Production...")
+            logger.info("Initializing core environments: Development, Staging, Production...")
             envs = [
                 Environment(name="Development"),
                 Environment(name="Staging"),
@@ -26,9 +32,9 @@ def seed_database_internal():
             logger.success("Environments initialized.")
 
         # 2. Create a Default Manager for Judges
-        # This allows judges to test the 'Manager Override' feature immediately.
+        # This bypasses the 'High Risk' block for hackathon judges during testing.
         if not User.query.filter_by(role="manager").first():
-            logger.info("Provisioning default manager account...")
+            logger.info("Provisioning default manager account for judges...")
             manager = User(
                 email="judge@safeconfig.ai", 
                 role="manager"
@@ -46,29 +52,37 @@ def setup_db():
     """
     Emergency/Setup Route:
     Synchronizes the database schema and applies default seeds.
+    Crucial for 'one-click' setup on Google Cloud Run.
     """
     try:
         with app.app_context():
-            # Creates tables if they don't exist
+            # Creates PostgreSQL tables if they don't exist
             db.create_all()
             seed_database_internal()
         return {
-            "status": "success", 
+            "success": True, 
             "message": "SafeConfig Schema and Seeds applied successfully."
         }, 200
     except Exception as e:
         logger.error(f"Setup-db endpoint failed: {e}")
-        return {"status": "error", "message": str(e)}, 500
+        return {"success": False, "message": str(e)}, 500
+
+@app.route('/healthz')
+def health_check():
+    """
+    Liveness probe for Google Cloud Load Balancer.
+    Essential for the $10,000 Cloud Bonus Category.
+    """
+    return "OK", 200
 
 # Entry point for local development and Cloud Run
 if __name__ == "__main__":
-    # Local development settings
-    # OAUTHLIB_INSECURE_TRANSPORT allows OAuth over HTTP (Local only)
+    # 🔓 Local development settings
+    # Allows OAuth over HTTP for local testing in Jaipur.
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
     # 🚀 CLOUD RUN OPTIMIZATION:
-    # Google Cloud Run injects the PORT environment variable.
-    # We default to 5000 for local dev but must use os.environ for the cloud.
+    # Uses the PORT provided by Google Cloud or defaults to 5000.
     port = int(os.environ.get("PORT", 5000))
     
     logger.info(f"SafeConfig AI Backend starting on port {port}...")

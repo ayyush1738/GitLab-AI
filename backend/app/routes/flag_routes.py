@@ -1,7 +1,8 @@
-import time
+import json
 import logging
-from flask import Blueprint, request, g
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+from app import cache  # 🚀 Global Redis Client
 from app.services.flag_service import FlagService
 from app.schemas import FlagCreateSchema, FlagToggleSchema
 from app.utils.helpers import api_response, format_error
@@ -11,12 +12,8 @@ logger = logging.getLogger(__name__)
 
 flags_bp = Blueprint("flags", __name__)
 
-# Simple in-memory cache for analytics to reduce DB load
-_cache = {
-    "analytics": {"data": None, "expiry": 0},
-    "logs": {"data": None, "expiry": 0}
-}
-CACHE_TTL = 5 
+# Cache Configuration
+CACHE_TTL = 300  # 5 Minutes
 
 @flags_bp.route("", methods=["GET"])
 @login_required
@@ -37,6 +34,11 @@ def create_flag():
         json_data = request.get_json()
         data = FlagCreateSchema(**json_data)
         new_flag = FlagService.create_new_flag(data)
+        
+        # Invalidate analytics cache on new flag creation
+        if cache:
+            cache.delete("analytics_data")
+            
         return api_response(True, "Feature defined successfully", new_flag.to_dict(), 201)
     except ValidationError as e:
         return api_response(False, "Schema Violation", {"errors": e.errors()}, 400)
@@ -44,10 +46,7 @@ def create_flag():
 @flags_bp.route("/<int:flag_id>/audit", methods=["POST"])
 @login_required
 def audit_flag(flag_id: int):
-    """
-    Manually triggers an AI Audit for a specific flag.
-    Often used for pre-deployment checks.
-    """
+    """Manually triggers an AI Audit for a specific flag."""
     try:
         json_data = request.get_json()
         reason = json_data.get("reason", "Manual pre-flight audit")
@@ -68,20 +67,20 @@ def audit_flag(flag_id: int):
 @flags_bp.route("/<int:flag_id>/toggle", methods=["PATCH"])
 @login_required
 def toggle_flag(flag_id: int):
-    """
-    Toggles flag state. Logic includes an AI Guardrail check.
-    If the AI Risk Score is too high, only managers can proceed.
-    """
+    """Toggles flag state with AI Guardrail enforcement."""
     try:
         json_data = request.get_json()
         data = FlagToggleSchema(**json_data)
         
-        # FlagService handles the AI Check and Role Validation
+        # FlagService handles AI Risk and Role Validation
         result, error_data = FlagService.toggle_status(flag_id, data, current_user)
         
         if error_data:
-            # error_data contains the AI assessment that blocked the action
             return api_response(False, "AI Guardrail Blocked Action", error_data, 403)
+            
+        # Invalidate logs cache on state change
+        if cache:
+            cache.delete("audit_logs")
             
         return api_response(True, "State updated safely", result.to_dict(), 200)
     except Exception as e:
@@ -90,10 +89,7 @@ def toggle_flag(flag_id: int):
 
 @flags_bp.route("/evaluate/<string:key>", methods=["GET"])
 def track_traffic(key: str):
-    """
-    Public endpoint for SDKs to check flag status and report traffic.
-    This feeds the 'Blast Radius' data used by the AI Agent.
-    """
+    """SDK endpoint that feeds Blast Radius data to the AI Agent."""
     env_name = request.args.get('env', 'Production').capitalize()
     
     # Record the hit for Blast Radius metrics
@@ -108,26 +104,31 @@ def track_traffic(key: str):
 @flags_bp.route("/analytics", methods=["GET"])
 @login_required
 def get_traffic_analytics():
-    """Returns hit counts per flag for the dashboard."""
-    now = time.time()
-    if _cache["analytics"]["data"] and now < _cache["analytics"]["expiry"]:
-        return api_response(True, "Analytics retrieved (cached)", _cache["analytics"]["data"], 200)
+    """Returns hit counts using Redis for distributed consistency."""
+    if cache:
+        cached_data = cache.get("analytics_data")
+        if cached_data:
+            return api_response(True, "Analytics retrieved (Redis)", json.loads(cached_data), 200)
 
     stats = FlagService.get_traffic_stats()
-    _cache["analytics"]["data"] = stats
-    _cache["analytics"]["expiry"] = now + CACHE_TTL
+    
+    if cache:
+        cache.setex("analytics_data", CACHE_TTL, json.dumps(stats))
+        
     return api_response(True, "Analytics retrieved", stats, 200)
 
 @flags_bp.route("/logs", methods=["GET"])
 @login_required
 def get_audit_trail():
-    """Returns the historical log of all toggles and AI interventions."""
-    now = time.time()
-    if _cache["logs"]["data"] and now < _cache["logs"]["expiry"]:
-        return api_response(True, "Audit trail retrieved (cached)", _cache["logs"]["data"], 200)
+    """Returns historical logs with Redis caching."""
+    if cache:
+        cached_logs = cache.get("audit_logs")
+        if cached_logs:
+            return api_response(True, "Audit trail retrieved (Redis)", json.loads(cached_logs), 200)
 
-    logs = FlagService.get_audit_history()
-    log_dicts = [l.to_dict() for l in logs]
-    _cache["logs"]["data"] = log_dicts
-    _cache["logs"]["expiry"] = now + CACHE_TTL
-    return api_response(True, "Audit trail retrieved", log_dicts, 200)
+    logs = [l.to_dict() for l in FlagService.get_audit_history()]
+    
+    if cache:
+        cache.setex("audit_logs", CACHE_TTL, json.dumps(logs))
+        
+    return api_response(True, "Audit trail retrieved", logs, 200)
