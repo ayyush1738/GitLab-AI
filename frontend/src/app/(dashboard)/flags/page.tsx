@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { Plus, Search, Filter, ShieldCheck, Zap, Loader2 } from "lucide-react";
-import { Button } from "@/src/components/ui/button";
-import { Badge } from "@/src/components/ui/badge";
-import { cn, formatDate } from "@/src/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn, formatDate } from "@/lib/utils";
 
 // Types matching your app/schemas.py
 interface Flag {
