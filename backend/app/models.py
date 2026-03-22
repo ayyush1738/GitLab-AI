@@ -1,4 +1,4 @@
-from .extensions import db
+from app.extensions import db
 from datetime import datetime, timezone
 from flask_login import UserMixin
 from sqlalchemy.dialects.postgresql import JSONB
@@ -82,3 +82,22 @@ class AuditLog(db.Model):
     
     ai_metadata = db.Column(JSONB, nullable=True) 
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    
+
+class FlagEvaluation(db.Model):
+    """
+    📊 Real-time Traffic Telemetry
+    Maps to the 'flag_evaluations' table. 
+    Used by TrafficService to calculate the Blast Radius for Claude 3.5.
+    """
+    __tablename__ = 'flag_evaluations'
+    id = db.Column(db.Integer, primary_key=True)
+    flag_id = db.Column(db.Integer, db.ForeignKey('feature_flags.id'), nullable=False)
+    env_name = db.Column(db.String(50), nullable=False) # 'Development', 'Staging', 'Production'
+    
+    # Telemetry Data
+    request_count = db.Column(db.Integer, default=0)
+    last_eval_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationship back to the main Flag
+    flag = db.relationship('FeatureFlag', backref=db.backref('evaluations', lazy=True))
