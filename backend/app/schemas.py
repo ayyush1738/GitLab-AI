@@ -1,14 +1,14 @@
 from pydantic import BaseModel, Field, field_validator, ConfigDict, EmailStr
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 # --- Auth Schemas ---
 
 class UserSchema(BaseModel):
-    """Schema for returning user data."""
+    """Schema for returning user data (GitHub Auth compatible)."""
     email: EmailStr
     role: str
+    username: Optional[str] = None
     
-    # 🚀 v2 Config: Allows Pydantic to read data from SQLAlchemy models directly
     model_config = ConfigDict(from_attributes=True)
 
 # --- Feature Flag Schemas ---
@@ -19,10 +19,7 @@ class FlagCreateSchema(BaseModel):
     Strictly enforces naming conventions to avoid SDLC friction.
     """
     name: str = Field(..., min_length=3, max_length=50, description="Human-friendly name")
-    
-    # 🛡️ Pattern ensures key is snake_case: lowercase, numbers, and underscores only
     key: str = Field(..., pattern=r"^[a-z0-9_]+$", description="Machine-readable key") 
-    
     description: Optional[str] = Field(None, max_length=200)
 
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -48,13 +45,17 @@ class FlagToggleSchema(BaseModel):
 
 class RiskAnalysisSchema(BaseModel):
     """
-    The input schema for the GitLab Duo Agent tool.
-    This defines what the Agent 'sees' when it decides to run an audit.
+    The input schema for the AI Reasoner (Claude/Gemini).
+    Includes 'Blast Radius' data from Redis.
     """
     feature_key: str
     environment: str = "Production"
     description: Optional[str] = None
     code_diff: Optional[str] = None
+    
+    # 🚀 The 'Grand Prize' addition: Live Context
+    current_traffic: Optional[int] = Field(0, description="Live user count from Redis")
+    affected_endpoints: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -65,11 +66,29 @@ class AIAssessmentResponseSchema(BaseModel):
     """
     risk_score: int = Field(..., ge=1, le=10)
     risk_level: Literal["low", "medium", "high"]
-    advice: str
+    reasoning: str = Field(..., description="The 'Why' behind the score")
     status: Literal["PASSED", "BLOCKED", "WARNING"]
     requires_override: bool = False
 
-    # 🚀 Enables 'Green Agent' Prize compatibility ($3,000 Bonus)
+    # 🚀 'Green Agent' Prize compatibility ($3,000 Bonus)
     sustainability_score: Optional[int] = Field(None, ge=1, le=10)
+    carbon_impact_estimate: Optional[str] = None
+
+    # 🏗️ GitLab Integration Fields
+    gitlab_comment_id: Optional[int] = None
+    pipeline_gate_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- Governance & Overrides ---
+
+class ManualOverrideSchema(BaseModel):
+    """
+    Schema for a Manager to approve a blocked flag change.
+    """
+    audit_id: int
+    approver_email: EmailStr
+    override_reason: str = Field(..., min_length=10)
+    status: Literal["APPROVED", "REJECTED"]
+
+    model_config = ConfigDict(str_strip_whitespace=True)

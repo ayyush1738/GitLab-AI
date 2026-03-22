@@ -2,13 +2,12 @@ import logging
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
 from app.models import db, FlagEvaluation, FeatureFlag
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class TrafficService:
     """
     Observability Layer: Correlates real-world traffic data 
-    with AI risk assessments.
+    with AI risk assessments for the 'Safety Firewall'.
     """
 
     @staticmethod
@@ -24,12 +23,17 @@ class TrafficService:
                 logger.warning(f"Traffic lookup failed: Flag key '{feature_key}' not found.")
                 return {"hits_24h": 0, "total_hits": 0, "status": "no_data"}
 
+            # 🚀 PRO-TIP: Check Redis first for the absolute latest "Hot" data
+            from app import cache
+            redis_hits = 0
+            if cache:
+                redis_hits = int(cache.get(f"traffic:{feature_key}") or 0)
+
             # 2. Set time window (Last 24 Hours)
             time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
 
-            # 3. Query hit counts
-            # Uses .scalar() to return the count as a single integer
-            hits_24h = db.session.query(func.count(FlagEvaluation.id)).filter(
+            # 3. Query hit counts from DB
+            hits_24h_db = db.session.query(func.count(FlagEvaluation.id)).filter(
                 FlagEvaluation.flag_id == flag.id,
                 FlagEvaluation.environment_name == environment.capitalize(),
                 FlagEvaluation.timestamp >= time_threshold
@@ -41,16 +45,18 @@ class TrafficService:
             ).scalar() or 0
 
             # 4. Contextualize for the AI
-            # High traffic (> 1000) triggers higher risk scores in the SafeConfigAgent logic
+            # We combine DB history with Redis real-time spikes for the most accurate Blast Radius
+            final_hits_24h = max(hits_24h_db, redis_hits)
+
             context = {
-                "hits_24h": hits_24h,
+                "hits_24h": final_hits_24h,
                 "total_hits": total_hits,
                 "environment": environment,
-                "intensity": "high" if hits_24h > 1000 else "low",
-                "status": "active" if hits_24h > 0 else "dormant"
+                "intensity": "high" if final_hits_24h > 1000 else "low",
+                "status": "active" if final_hits_24h > 0 else "dormant"
             }
 
-            logger.info(f"Traffic Context for {feature_key}: {hits_24h} hits/24h.")
+            logger.info(f"Blast Radius for {feature_key}: {final_hits_24h} hits (Source: Hybrid)")
             return context
 
         except Exception as e:
@@ -60,8 +66,8 @@ class TrafficService:
     @staticmethod
     def get_global_traffic_distribution() -> list:
         """
-        Aggregates traffic across all features for the Dashboard.
-        Used to identify 'Hotspots' in the architecture.
+        Aggregates traffic across all features for the Next.js Dashboard.
+        Identifies 'High-Risk Hotspots' in the architecture.
         """
         stats = db.session.query(
             FeatureFlag.key, 
@@ -76,18 +82,18 @@ class TrafficService:
         return [{"key": s.key, "hits": s.hit_count} for s in stats]
 
     @staticmethod
-    def cleanup_old_metrics(days: int = 30):
+    def cleanup_old_metrics(days: int = 7):
         """
-        Maintenance: Removes metrics older than X days to keep DB fast.
-        Important for 'Sustainable Design' prize ($3,000 bonus category).
+        Maintenance: Removes metrics older than X days.
+        Optimized to 7 days for the 'Sustainable Design' prize to minimize DB bloat.
         """
         try:
             cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-            deleted = db.session.query(FlagEvaluation).filter(
-                FlagEvaluation.timestamp < cutoff
-            ).delete()
+            deleted = FlagEvaluation.query.filter(FlagEvaluation.timestamp < cutoff).delete()
             db.session.commit()
             logger.info(f"Sustainability Task: Purged {deleted} old traffic records.")
+            return deleted
         except Exception as e:
             db.session.rollback()
             logger.error(f"Metric cleanup failed: {e}")
+            return 0

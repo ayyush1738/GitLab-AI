@@ -6,33 +6,37 @@ import { useState } from "react";
 
 /**
  * 🛡️ QueryProvider
- * Wraps the Next.js App Router to enable TanStack Query (React Query).
- * This is the engine that will poll your /analyze-risk and /analytics 
- * Flask endpoints.
+ * Purpose: Global state for data fetching, caching, and background synchronization.
+ * Configured specifically for high-security governance auditing.
  */
 export function QueryProvider({ children }: { children: React.ReactNode }) {
-  // We use useState to initialize the QueryClient to ensure it's 
-  // singleton-per-browser-session (prevents unnecessary re-instantiations).
+  // 🚀 Initialize QueryClient as a singleton to maintain cache across navigation
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            // 🕒 Data is considered "fresh" for 1 minute.
-            // Good for security audits where things don't change every second.
-            staleTime: 60 * 1000,
+            // 🕒 staleTime: 30s. We want the 'Blast Radius' to feel real-time 
+            // but don't want to spam the Flask/Redis backend.
+            staleTime: 30 * 1000,
+
+            // ♻️ gcTime: 5 mins. Keep audit logs in memory for quick back-navigation.
+            gcTime: 5 * 60 * 1000,
             
-            // 🔄 If the Flask backend is down (500s), retry twice before failing.
-            // Essential for distributed systems reliability.
+            // 🔄 Retries: Limited to 2. If the Cloud Run instance is cold-starting,
+            // we give it a moment to wake up before showing an error.
             retry: 2,
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
             
-            // 📶 Refetch data when the browser window regains focus.
-            // Ensures the Manager always sees the latest 'Blast Radius' hits.
+            // 📶 Live Updates: Refetch when the manager switches back to the tab.
             refetchOnWindowFocus: true,
+
+            // 🔌 Network Resilience: Refetch when internet connection is restored.
+            refetchOnReconnect: true,
           },
           mutations: {
-            // 🛡️ Fail-safe: If a toggle-flag action fails, don't retry automatically.
-            // We want the user to manually intervene for security actions.
+            // 🛡️ Security Fail-safe: Never auto-retry a failed 'Toggle' or 'Delete'.
+            // If Claude blocks a change, we require a manual fresh attempt.
             retry: false,
           },
         },
@@ -43,11 +47,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {children}
       
-      {/* 🛠️ DevTools: Only visible in development mode.
-         Invaluable for debugging your Flask JSON responses and cache states.
+      {/* 🛠️ TanStack DevTools: The "X-Ray" for your AI Data.
+          Visible only in development to debug JSON payloads and cache invalidation.
       */}
       {process.env.NODE_ENV === "development" && (
-        <ReactQueryDevtools initialIsOpen={false} />
+        <ReactQueryDevtools initialIsOpen={false} position="bottom" />
       )}
     </QueryClientProvider>
   );

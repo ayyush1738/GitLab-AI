@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ESNext",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -13,6 +13,12 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    
+    /* 🛡️ SafeConfig Enterprise Security Additions */
+    "forceConsistentCasingInFileNames": true, // Prevents Linux deployment "File Not Found" bugs
+    "noUnusedLocals": true,                   // Keeps the $10k Prize code clean and optimized
+    "noUnusedParameters": true,               // Ensures high-quality governance standards
+    
     "plugins": [
       {
         "name": "next"

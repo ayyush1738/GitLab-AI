@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { AuthProvider } from "@/context/AuthContext"; // 🚀 Essential for Session Sync
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +17,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "SafeConfig AI | Secure Governance Guardrails",
-  description: "Enterprise-grade AI configuration auditing with real-time blast radius tracking. Built for the Google Cloud Prize 2026.",
+  description: "Enterprise-grade AI configuration auditing with real-time blast radius tracking. Optimized for Google Cloud Run.",
   icons: {
-    icon: "/favicon.ico", // Ensure you have a shield or lock icon here
+    icon: "/favicon.ico", 
   },
 };
 
@@ -28,20 +29,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={cn(
           geistSans.variable,
           geistMono.variable,
-          "min-h-screen bg-background font-sans antialiased"
+          "min-h-screen bg-[#020617] font-sans antialiased text-slate-200"
         )}
       >
-        {/* We wrap children in QueryProvider so all your components 
-          can access the AI risk assessment data and blast radius stats.
+        {/* 🏰 THE PROVIDER HIERARCHY:
+          1. AuthProvider: Manages the Flask Session & User Roles.
+          2. QueryProvider: Handles AI Audit data fetching & Redis polling.
         */}
-        <QueryProvider>
-          {children}
-        </QueryProvider>
+        <AuthProvider>
+          <QueryProvider>
+            {children}
+          </QueryProvider>
+        </AuthProvider>
       </body>
     </html>
   );

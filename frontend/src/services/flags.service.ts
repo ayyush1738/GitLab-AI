@@ -9,13 +9,14 @@ import { FeatureFlag } from "@/types/models";
 
 /**
  * 🚩 Feature Flag Service
- * Manages the lifecycle of secure configurations and environment states.
- * Integrated with the Flask FlagService and PostgreSQL.
+ * Purpose: Manages the lifecycle of secure configurations and environment states.
+ * Integration: Directly maps to the Flask 'flags_bp' Blueprint on your Jaipur Cloud Node.
  */
 export const FlagsService = {
   /**
    * 📡 Fetch All Flags
    * Retrieves flags with nested environment statuses and update history.
+   * Optimized for: The 'FlagList' and 'Dashboard' overview components.
    */
   getAllFlags: async (): Promise<FeatureFlag[]> => {
     const res = await api.get<ApiResponse<FeatureFlag[]>>(API_ENDPOINTS.FLAGS);
@@ -24,8 +25,8 @@ export const FlagsService = {
 
   /**
    * 🛠️ Create New Flag
-   * Adds a new feature key to the system. 
-   * Triggers initial environment setup in the backend.
+   * Registers a new feature key and initializes statuses for Dev, Staging, and Prod.
+   * 🚀 Tip: Triggers the initial "Green Audit" from Gemini 1.5 during setup.
    */
   createFlag: async (payload: FlagCreateRequest): Promise<FeatureFlag> => {
     const res = await api.post<ApiResponse<FeatureFlag>>(
@@ -37,24 +38,40 @@ export const FlagsService = {
 
   /**
    * 🔄 Toggle Flag Status (AI Intercepted)
-   * The most critical method for the $10k Governance category.
-   * This request will be audited by Claude 3.5 Sonnet on the backend.
+   * The core of the 'SafeConfig' Governance model.
+   * This PATCH request triggers the Claude 3.5 Sonnet risk assessment in the backend.
    */
   toggleStatus: async (
     flagId: number, 
     payload: FlagToggleRequest
   ): Promise<ApiResponse<any>> => {
-    // PATCH /api/flags/:id/toggle
-    const res = await api.patch<ApiResponse<any>>(
-      `${API_ENDPOINTS.FLAGS}/${flagId}/toggle`,
-      payload
-    );
-    return res.data;
+    try {
+      const res = await api.patch<ApiResponse<any>>(
+        `${API_ENDPOINTS.FLAGS}/${flagId}/toggle`,
+        payload
+      );
+      return res.data;
+    } catch (error: any) {
+      /**
+       * 🛡️ Governance Interceptor
+       * If the AI Agent returns 403, it means the change was blocked due to high risk.
+       * We log the full AI reasoning report for the 'Compliance Ledger' demo.
+       */
+      if (error.response?.status === 403) {
+        const report = error.response.data?.data?.report;
+        console.warn(
+          `[SafeConfig AI] Governance Block: ${error.response.data.message}`, 
+          report
+        );
+      }
+      throw error; // Rethrow to trigger the 'onError' rollback in useFlags
+    }
   },
 
   /**
    * 🗑️ Remove Flag
-   * Securely deletes a feature key and all associated environment statuses.
+   * Deletes a feature key and cascades deletion to all environment statuses.
+   * Securely wipes associated Redis cache keys for the flag.
    */
   deleteFlag: async (flagId: number): Promise<void> => {
     await api.delete(`${API_ENDPOINTS.FLAGS}/${flagId}`);

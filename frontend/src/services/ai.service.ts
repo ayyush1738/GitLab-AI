@@ -9,24 +9,32 @@ import { AIAssessment } from "@/types/models";
 
 /**
  * 🧠 AI Governance Service
- * Handles communication with the SafeConfig AI Agent (Claude 3.5 & Gemini 1.5).
+ * Purpose: Centralized gateway for SafeConfig's Dual-Agent Orchestration.
+ * 🏗️ Strategy:
+ * - Claude 3.5 Sonnet: Primary Logic & Risk Auditor.
+ * - Gemini 1.5 Flash: Sustainability & Efficiency Auditor.
  */
 export const AiService = {
   /**
    * 🛡️ Perform Pre-Deployment Risk Analysis
-   * Calls the AI Agent to simulate a 'Blast Radius' check before a flag is toggled.
+   * Triggers the AI Agent to perform a 'Pre-flight' check on a configuration toggle.
    */
   analyzeRisk: async (payload: RiskAnalysisRequest): Promise<AIAssessment> => {
-    const res = await api.post<ApiResponse<AIAssessment>>(
-      `${API_ENDPOINTS.AI}/analyze`, 
-      payload
-    );
-    return res.data.data;
+    try {
+      const res = await api.post<ApiResponse<AIAssessment>>(
+        `${API_ENDPOINTS.AI}/analyze`, 
+        payload
+      );
+      return res.data.data;
+    } catch (error) {
+      console.error("🛡️ AI Analysis Failed: Check SafeConfig Agent connectivity.", error);
+      throw error;
+    }
   },
 
   /**
    * 📜 Fetch Compliance Ledger
-   * Retrieves the full history of AI-backed decisions and manual overrides.
+   * Retrieves the immutable history of AI-backed decisions from the /api/flags/logs endpoint.
    */
   getAuditLogs: async (): Promise<AuditTrailResponse> => {
     const res = await api.get<ApiResponse<AuditTrailResponse>>(
@@ -37,21 +45,26 @@ export const AiService = {
 
   /**
    * 🍃 Fetch Sustainability Metrics
-   * Specifically pulls the Gemini-generated 'Green Audit' for the $3k prize category.
+   * Specifically pulls the Gemini-generated 'Green Audit' for the $3k Prize Category.
    */
-  getEcoReport: async (auditId: number): Promise<ApiResponse<any>> => {
+  getEcoReport: async (auditId: number): Promise<any> => {
     const res = await api.get<ApiResponse<any>>(
       `${API_ENDPOINTS.AI}/eco-report/${auditId}`
     );
-    return res.data;
+    return res.data.data;
   },
 
   /**
    * 📊 Get Real-Time Blast Radius
-   * Fetches the hit distribution across high-risk features from Redis.
+   * Pulls the hit-density distribution from the Redis-backed Traffic Service.
    */
-  getBlastRadius: async () => {
-    const res = await api.get<ApiResponse<any>>(`${API_ENDPOINTS.FLAGS}/analytics`);
-    return res.data.data;
+  getBlastRadius: async (): Promise<any[]> => {
+    try {
+      const res = await api.get<ApiResponse<any[]>>(`${API_ENDPOINTS.FLAGS}/analytics`);
+      return res.data.data;
+    } catch (error) {
+      console.warn("📊 Analytics Service Offline: Falling back to local cache.");
+      return [];
+    }
   }
 };

@@ -1,116 +1,108 @@
 import os
-import json
 import logging
 from typing import Dict, Any
 
-# 🚀 MODERN LANGCHAIN v0.3+ IMPORTS
-# Replacing deprecated paths with the high-level create_agent API
-from langchain.agents import create_agent
+# 🚀 MODERN LANGCHAIN v0.3+ STANDARDS
+from langgraph.prebuilt import create_react_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class SafeConfigAgent:
     """
     The Reasoning Engine for SafeConfig Duo.
-    Orchestrates Anthropic (Reasoning) and Gemini (Efficiency) LLMs.
-    Refactored for LangChain v0.3+ standards.
+    Orchestrates Anthropic (Security) and Gemini (Sustainability) models.
     """
 
     @staticmethod
     @tool
-    def fetch_blast_radius(feature_key: str, environment: str) -> str:
-        """Queries the database for real-time user traffic (hits) for a specific feature."""
-        # This mirrors your work on optimizing model serving pipelines and API enhancements
-        from app.services.traffic_service import TrafficService
-        stats = TrafficService.get_live_traffic_context(feature_key, environment)
-        return f"Feature {feature_key} in {environment} has {stats.get('hits_24h', 0)} hits in the last 24h."
+    def fetch_blast_radius(feature_key: str, environment: str = "Production") -> str:
+        """
+        Queries Redis/PostgreSQL for real-time user traffic for a specific feature.
+        Use this to determine if a change is 'High Impact' based on user volume.
+        """
+        try:
+            from app.utils.helpers import get_blast_radius
+            count = get_blast_radius(feature_key)
+            return f"Feature '{feature_key}' currently has {count} active users in {environment}."
+        except Exception as e:
+            return f"Could not fetch traffic data: {str(e)}. Assume 0 for safety check."
 
     @classmethod
-    def run_audit(cls, feature_key: str, environment: str, code_diff: str, description: str, traffic_context: Dict) -> Dict[str, Any]:
+    def run_audit(cls, feature_key: str, environment: str, code_diff: str, description: str) -> Dict[str, Any]:
         """
-        Executes an agentic reasoning loop using Claude 3.5 Sonnet via LangGraph-backed create_agent.
-        Targets high-accuracy risk assessment for the $10k Google Cloud Bonus.
+        Executes an agentic reasoning loop using Claude 3.5 via LangGraph.
         """
         
-        # 1. Setup the Primary Reasoning LLM (Anthropic)
-        # Matches your experience with complex Java/SpringBoot platforms
+        # 1. Setup Security Reasoning LLM (Claude 3.5)
         llm = ChatAnthropic(
             model="claude-3-5-sonnet-latest", 
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
             temperature=0
         )
 
-        # 2. Define the Agent's "Teammate" Persona
-        # Incorporates the 'Secure, role-based' logic from your Violetis project
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", """
-            You are 'GitGuardian Duo', an Autonomous Senior DevOps & Security Agent.
-            Your mission is to audit Merge Requests for risk and compliance.
-            
-            RULES:
-            1. SENSITIVITY: If code impacts 'payments', 'auth', or 'database', risk is inherently HIGH.
-            2. BLAST RADIUS: Use the 'fetch_blast_radius' tool. If hits > 1000, risk_score must be >= 8.
-            3. MITIGATION: If the developer mentioned 'circuit breaker' or 'feature flag', reduce risk_score by 2.
-            
-            OUTPUT: You must return a valid JSON object with:
-            - risk_score (1-10)
-            - advice (technical explanation)
-            - risk_level (low, medium, high)
-            """),
-            ("human", f"Audit this change:\nEnv: {environment}\nFeature: {feature_key}\nDescription: {description}\nCode Diff: {code_diff}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-
-        # 3. Bind Tools and Execute using the new create_agent standard
+        # 2. Tools and System Prompt
         tools = [cls.fetch_blast_radius]
         
-        # create_agent replaces the legacy create_tool_calling_agent and AgentExecutor
-        agent = create_agent(
-            llm,
-            tools=tools,
-            messages_modifier=prompt # Modern way to pass system instructions and history
+        system_instructions = (
+            "You are 'SafeConfig Duo', an Autonomous Senior DevOps & Security Agent.\n"
+            "Your mission: Audit Merge Requests for risk.\n\n"
+            "RULES:\n"
+            "1. BLAST RADIUS: Always call 'fetch_blast_radius' first. If users > 5000, risk_score MUST be >= 8.\n"
+            "2. SENSITIVITY: Payments, Auth, or DB changes are inherently HIGH risk.\n"
+            "3. MITIGATION: If 'circuit breaker' or 'feature flag' is used, reduce risk_score by 2.\n\n"
+            "OUTPUT: You MUST return a valid JSON object with:\n"
+            "- risk_score (1-10)\n"
+            "- risk_level (low, medium, high)\n"
+            "- advice (technical explanation)\n"
+            "- status (PASSED, BLOCKED, or WARNING)"
         )
+
+        # 3. Initialize the ReAct Agent (LangGraph)
+        # This replaces the legacy AgentExecutor
+        agent_executor = create_react_agent(llm, tools, state_modifier=system_instructions)
 
         try:
             # Execute the reasoning loop
-            # Uses the standardized .invoke() pattern for LangGraph-based agents
-            result = agent.invoke({
-                "input": f"Perform a high-impact audit on {feature_key}."
-            })
+            input_msg = (
+                f"Audit this deployment:\n"
+                f"Feature: {feature_key}\n"
+                f"Environment: {environment}\n"
+                f"Description: {description}\n"
+                f"Diff: {code_diff}"
+            )
             
-            # The new API returns the final output under the 'output' key
-            output_text = result.get("output", "{}")
+            result = agent_executor.invoke({"messages": [("human", input_msg)]})
             
-            # Clean Markdown formatting and parse JSON
+            # Extract the final message content from the agent
+            final_response = result["messages"][-1].content
+            
             from app.utils.helpers import clean_llm_json
-            report = clean_llm_json(output_text)
+            report = clean_llm_json(final_response)
 
             # 4. Supplemental Sustainability Audit (Gemini 1.5 Flash)
-            # Utilizing the 'Green Agent' category as seen in your recent projects
-            green_report = cls.get_sustainability_impact(code_diff)
-            report["sustainability_audit"] = green_report
+            # Parallel-style check for the 'Green Agent' Bonus
+            report["sustainability_audit"] = cls.get_sustainability_impact(code_diff)
 
-            logger.info(f"Agent Audit Complete: {feature_key} -> Score: {report.get('risk_score')}")
+            logger.success(f"Audit Complete for {feature_key} | Risk: {report.get('risk_score')}")
             return report
 
         except Exception as e:
             logger.error(f"Agentic Audit Failed: {str(e)}")
             return {
-                "risk_score": 7, 
-                "advice": "Agent reasoning failed. Defaulting to High-Safety mode.", 
+                "risk_score": 9, 
+                "advice": "Reasoning engine timed out or failed. Manual override required.", 
                 "risk_level": "high",
-                "status": "FAIL_SAFE"
+                "status": "BLOCKED"
             }
 
     @staticmethod
     def get_sustainability_impact(code_diff: str) -> Dict[str, Any]:
         """
         Specialized analysis for carbon-efficient coding using Gemini 1.5 Flash.
-        Reflects your interest in high-throughput media verification and system reliability.
+        Targets the $3,000 Green Coding Bonus.
         """
         try:
             gemini = ChatGoogleGenerativeAI(
@@ -119,21 +111,17 @@ class SafeConfigAgent:
                 temperature=0
             )
 
-            prompt = f"""
-            Analyze this code diff for environmental sustainability (carbon impact).
-            Look for:
-            1. Inefficient loops (O(n^2) or higher).
-            2. N+1 Database queries.
-            3. Lack of caching for heavy operations (like Redis integration).
-            
-            Code: {code_diff}
-            
-            Return ONLY a valid JSON object: {{"score": 1-10, "warnings": [], "green_advice": ""}}
-            """
+            prompt = (
+                "Analyze this code diff for carbon impact and efficiency.\n"
+                "Focus on: O(n^2) loops, redundant DB calls, and lack of caching.\n"
+                f"Code: {code_diff}\n\n"
+                "Return ONLY a valid JSON object: "
+                "{\"sustainability_score\": 1-10, \"warnings\": [], \"green_advice\": \"\"}"
+            )
             
             response = gemini.invoke(prompt)
             from app.utils.helpers import clean_llm_json
             return clean_llm_json(response.content)
         except Exception as e:
             logger.warning(f"Sustainability audit skipped: {e}")
-            return {"score": 0, "warnings": ["Audit service unavailable"]}
+            return {"sustainability_score": 0, "warnings": ["Efficiency check unavailable"]}

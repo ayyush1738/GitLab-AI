@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { Plus, Search, Filter, ShieldCheck, Zap, Loader2 } from "lucide-react";
+import { Plus, Search, Filter, ShieldCheck, Zap, Loader2, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { cn, formatDate } from "@/lib/utils";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter 
+} from "@/components/ui/dialog";
 
-// Types matching your app/schemas.py
 interface Flag {
   id: number;
   name: string;
@@ -24,6 +31,11 @@ interface Flag {
 export default function FlagsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // 🛡️ Justification State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeToggle, setActiveToggle] = useState<{ id: number, envId: number, key: string } | null>(null);
+  const [reason, setReason] = useState("");
 
   const { data: flags, isLoading } = useQuery({
     queryKey: ["flags"],
@@ -44,14 +56,19 @@ export default function FlagsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["flags"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
+      setIsModalOpen(false);
+      setReason("");
+      setActiveToggle(null);
     },
     onError: (error: any) => {
-      // Professional handling of the AI Block
-      const message = error.response?.data?.message || "Deployment failed";
       const report = error.response?.data?.data?.report;
+      const message = error.response?.data?.message || "AI Guardrail Blocked Action";
       
-      console.error("AI Guardrail Report:", report);
-      alert(`⚠️ ${message}\n\nAI Risk Score: ${report?.risk_score || 'N/A'}`);
+      // Professional logging for the demo
+      console.warn("🛡️ SafeConfig Block Report:", report);
+      alert(`🚫 ${message}\n\nRisk Level: ${report?.risk_level?.toUpperCase()}\nAdvice: ${report?.advice}`);
+      setIsModalOpen(false);
     }
   });
 
@@ -61,86 +78,134 @@ export default function FlagsPage() {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Feature Flags</h1>
-          <p className="text-slate-400 mt-1">Orchestrating Claude 3.5 & Gemini for secure deployments.</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Feature Orchestrator</h1>
+          <p className="text-slate-400 mt-1 text-sm font-medium">Deploy with confidence using Claude 3.5 & Gemini security gates.</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-500 gap-2 rounded-xl">
+        <Button className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 rounded-xl shadow-lg shadow-indigo-500/20">
           <Plus size={18} /> Define New Feature
         </Button>
       </div>
 
-      <div className="flex items-center gap-4 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+      {/* Search & Filter Bar */}
+      <div className="flex items-center gap-4 bg-slate-900/40 p-2 rounded-2xl border border-slate-800 backdrop-blur-sm shadow-xl">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-          <input 
-            type="text"
-            placeholder="Search by key or name..."
-            className="w-full bg-transparent border-none focus:ring-0 text-sm py-2 pl-10 text-slate-200 outline-none"
+          <Input 
+            placeholder="Search by key (e.g. 'billing_engine')..."
+            className="w-full bg-transparent border-none focus-visible:ring-0 text-slate-200 pl-10 h-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="ghost" size="sm" className="text-slate-400 gap-2">
+        <Button variant="ghost" size="sm" className="text-slate-400 gap-2 hover:bg-slate-800">
           <Filter size={14} /> Filter
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-6">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-            <p className="animate-pulse">Fetching system configurations...</p>
+          <div className="flex flex-col items-center justify-center py-32 text-slate-500">
+            <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
+            <p className="font-mono text-xs tracking-widest uppercase animate-pulse">Initializing Secure Context...</p>
           </div>
         ) : (
           filteredFlags?.map((flag) => (
             <FlagCard 
               key={flag.id} 
               flag={flag} 
-              isPending={toggleMutation.isPending}
+              isPending={toggleMutation.isPending && activeToggle?.id === flag.id}
               onToggle={(envId) => {
-                const reason = prompt(`Reason for toggling ${flag.key}? (Required for AI Audit)`);
-                if (reason) toggleMutation.mutate({ id: flag.id, envId, reason });
+                setActiveToggle({ id: flag.id, envId, key: flag.key });
+                setIsModalOpen(true);
               }} 
             />
           ))
         )}
       </div>
+
+      {/* 🛡️ AI Governance Justification Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="bg-slate-950 border-slate-800 text-white rounded-3xl max-w-md shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <ShieldCheck className="text-indigo-500" />
+              Pre-Flight Justification
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-3 items-start">
+              <AlertTriangle className="text-amber-500 w-5 h-5 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                Modifying <span className="font-bold text-white">{activeToggle?.key}</span>. 
+                This triggers a real-time <span className="text-indigo-400">Claude 3.5</span> risk audit and 
+                <span className="text-emerald-400"> Gemini</span> efficiency scan.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Reason for change</label>
+              <textarea 
+                className="w-full h-24 bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="e.g., Scaling database capacity for winter sale..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="text-slate-400 h-10">Cancel</Button>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-500 font-bold px-8 rounded-xl h-10 shadow-lg shadow-indigo-500/20"
+              disabled={reason.length < 5 || toggleMutation.isPending}
+              onClick={() => toggleMutation.mutate({ id: activeToggle!.id, envId: activeToggle!.envId, reason })}
+            >
+              {toggleMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy to Gateway"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function FlagCard({ flag, onToggle, isPending }: { flag: Flag; onToggle: (envId: number) => void; isPending: boolean }) {
   return (
-    <div className="group bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all p-6 rounded-2xl relative overflow-hidden">
+    <div className="group bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all p-6 rounded-3xl relative overflow-hidden backdrop-blur-sm shadow-xl">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">{flag.name}</h3>
-            <Badge className="bg-slate-800 text-indigo-400 border-slate-700 font-mono text-[10px]">
+            <div className="p-2 bg-indigo-500/10 rounded-lg group-hover:bg-indigo-500/20 transition-colors">
+               <ShieldCheck className="text-indigo-500 w-5 h-5" />
+            </div>
+            <h3 className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">{flag.name}</h3>
+            <Badge variant="outline" className="bg-slate-800 text-indigo-300 border-slate-700 font-mono text-[9px] px-2 py-0.5">
               {flag.key}
             </Badge>
           </div>
-          <p className="text-sm text-slate-400 max-w-xl line-clamp-2">{flag.description}</p>
+          <p className="text-sm text-slate-400 max-w-2xl leading-relaxed font-medium">{flag.description}</p>
         </div>
         
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-4">
           {flag.statuses.map((status, idx) => (
-            <div key={status.environment_name} className="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800 min-w-[100px]">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{status.environment_name}</span>
+            <div key={status.environment_name} className="flex flex-col items-center gap-3 p-4 bg-slate-950/40 rounded-2xl border border-slate-800/50 min-w-[120px] shadow-inner transition-all hover:bg-slate-950/60">
+              <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{status.environment_name}</span>
               <button 
                 disabled={isPending}
                 onClick={() => onToggle(idx + 1)}
                 className={cn(
-                  "w-12 h-6 rounded-full relative transition-all duration-300 disabled:opacity-50",
-                  status.is_enabled ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" : "bg-slate-700"
+                  "w-14 h-7 rounded-full relative transition-all duration-500 flex items-center px-1 shadow-inner",
+                  status.is_enabled ? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-slate-700"
                 )}
               >
                 <div className={cn(
-                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300",
-                  status.is_enabled && "translate-x-6"
+                  "w-5 h-5 bg-white rounded-full shadow-lg transition-all duration-300",
+                  status.is_enabled ? "translate-x-7" : "translate-x-0",
+                  isPending && "animate-pulse opacity-50"
                 )} />
               </button>
             </div>
@@ -148,17 +213,18 @@ function FlagCard({ flag, onToggle, isPending }: { flag: Flag; onToggle: (envId:
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-6 text-[10px] text-slate-500 border-t border-slate-800/50 pt-4">
-        <div className="flex items-center gap-1.5">
-          <Zap size={12} className="text-amber-500" />
-          <span>REAL-TIME TRAFFIC SYNC</span>
+      <div className="mt-6 flex items-center gap-8 text-[9px] text-slate-600 border-t border-slate-800/50 pt-4 font-bold tracking-widest uppercase">
+        <div className="flex items-center gap-1.5 group-hover:text-amber-500 transition-colors">
+          <Zap size={12} className="text-amber-500/50 group-hover:text-amber-500" />
+          <span>Blast Radius Analysis</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck size={12} className="text-indigo-500" />
-          <span>GOVERNANCE ACTIVE</span>
+        <div className="flex items-center gap-1.5 group-hover:text-indigo-500 transition-colors">
+          <ShieldCheck size={12} className="text-indigo-500/50 group-hover:text-indigo-500" />
+          <span>AI Enforcement Active</span>
         </div>
-        <div className="ml-auto italic">
-          Last updated: {formatDate(flag.statuses[0]?.updated_at)}
+        <div className="ml-auto flex items-center gap-2 text-slate-500">
+          <Clock size={12} />
+          {formatDate(flag.statuses[0]?.updated_at)}
         </div>
       </div>
     </div>

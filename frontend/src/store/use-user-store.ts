@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { User } from "@/types/models";
-import { USER_ROLES } from "@/lib/constants";
+import { USER_ROLES, UserRole } from "@/lib/constants";
 
 /**
  * 👤 SafeConfig User Store
- * Manages the authenticated user session and role-based permissions.
+ * Purpose: Manages the 'Live' session state and role-based gating logic.
+ * Integration: Populated by the useAuth hook after a successful Flask-Dance handshake.
  */
 interface UserState {
   // --- State ---
@@ -12,14 +13,15 @@ interface UserState {
   isAuthenticated: boolean;
   isLoading: boolean;
 
-  // --- Computed Helpers ---
-  isManager: () => boolean;
-  isDeveloper: () => boolean;
-
   // --- Actions ---
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
+
+  // --- Permission Helpers (Computed) ---
+  isManager: () => boolean;
+  isDeveloper: () => boolean;
+  hasRole: (role: UserRole) => boolean;
 }
 
 export const useUserStore = create<UserState>()((set, get) => ({
@@ -27,13 +29,6 @@ export const useUserStore = create<UserState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
-
-  // --- Computed Helpers ---
-  /** Returns true if the logged-in user has the 'manager' role */
-  isManager: () => get().user?.role === USER_ROLES.MANAGER,
-
-  /** Returns true if the logged-in user has the 'developer' role */
-  isDeveloper: () => get().user?.role === USER_ROLES.DEVELOPER,
 
   // --- Actions ---
   setUser: (user) => 
@@ -46,10 +41,23 @@ export const useUserStore = create<UserState>()((set, get) => ({
   setLoading: (loading) => 
     set({ isLoading: loading }),
 
+  /**
+   * 🚪 Logout Action
+   * Clears the local state. Note: Actual session destruction 
+   * happens in the useAuth hook's logout mutation via Flask /auth/logout.
+   */
   logout: () => 
     set({ 
       user: null, 
       isAuthenticated: false, 
       isLoading: false 
     }),
+
+  // --- Permission Logic ---
+  isManager: () => get().user?.role === USER_ROLES.MANAGER,
+
+  isDeveloper: () => get().user?.role === USER_ROLES.DEVELOPER,
+
+  /** Generic role check for scalability */
+  hasRole: (role: UserRole) => get().user?.role === role,
 }));

@@ -1,6 +1,7 @@
 /**
  * 🔐 Authentication & Authorization Constants
- * Matches the 'role' column in your PostgreSQL 'users' table.
+ * Purpose: Used for Role-Based Access Control (RBAC) in UI Gating.
+ * Maps directly to the 'role' Enum in the Flask User model.
  */
 export const USER_ROLES = {
   MANAGER: "manager",
@@ -10,69 +11,76 @@ export const USER_ROLES = {
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
 /**
- * 🌍 Environment Constants
- * Matches the 'name' column in your 'environments' table initialized in index.py.
+ * 🌍 Environment Registry
+ * ID Mapping: 1 = Development, 2 = Staging, 3 = Production.
+ * Used for toggling specific logic gates in the FlagCard component.
  */
 export const ENVIRONMENTS = {
-  PRODUCTION: "Production",
-  STAGING: "Staging",
-  DEVELOPMENT: "Development",
+  DEVELOPMENT: { id: 1, name: "Development", color: "slate" },
+  STAGING: { id: 2, name: "Staging", color: "indigo" },
+  PRODUCTION: { id: 3, name: "Production", color: "emerald" },
 } as const;
 
-export type EnvironmentName = (typeof ENVIRONMENTS)[keyof typeof ENVIRONMENTS];
+export type EnvironmentName = (typeof ENVIRONMENTS)[keyof typeof ENVIRONMENTS]["name"];
 
 /**
- * 🛡️ Security & Risk Constants
- * Defines the thresholds used by the AI Guardrail logic.
+ * 🛡️ Security & Risk Orchestration
+ * Defines the Claude 3.5 & Gemini reasoning thresholds.
  */
 export const RISK_THRESHOLDS = {
-  HIGH: 8,    // Triggers MANAGER_OVERRIDE block
-  MEDIUM: 5,  // Triggers WARNING status
+  CRITICAL: 9, // Blocks all actions
+  HIGH: 7,     // Requires Manager Justification
+  MEDIUM: 4,   // Triggers Warning Badge
   LOW: 0,
 } as const;
 
 /**
- * 📡 API Endpoint Configuration
+ * 📡 API Endpoint Registry
  * Centralizes the base paths for your Flask Blueprints.
  */
 export const API_ENDPOINTS = {
   AUTH: "/auth",
   AI: "/api/ai",
   FLAGS: "/api/flags",
+  ANALYTICS: "/api/analytics", // 🚀 Added for Blast Radius telemetry
 } as const;
 
 /**
- * 📊 UI & Charting Constants
- * Defines the brand colors used for the Blast Radius and Risk metrics.
+ * 📊 UI & Brand System
+ * Defines the Hex codes for the 'Command Center' aesthetic.
  */
 export const COLORS = {
   RISK: {
-    HIGH: "#ef4444",    // Red-500
+    HIGH: "#f43f5e",    // Rose-500
     MEDIUM: "#f59e0b",  // Amber-500
     LOW: "#10b981",     // Emerald-500
   },
   BRAND: {
-    PRIMARY: "#4f46e5", // Indigo-600
+    PRIMARY: "#6366f1",   // Indigo-500
     SECONDARY: "#818cf8", // Indigo-400
-    DARK: "#020617",    // Slate-950
+    BACKGROUND: "#020617", // Slate-950
+    SURFACE: "#0f172a",    // Slate-900
   },
 } as const;
 
 /**
- * ⏱️ Polling & Timeout Constants
- * Configuration for TanStack Query intervals.
+ * ⏱️ Telemetry Polling Cycles (ms)
+ * Configuration for TanStack Query background synchronization.
  */
 export const POLLING_INTERVALS = {
-  ANALYTICS: 30000, // 30 seconds for Redis traffic sync
-  AUDIT_LOGS: 60000, // 1 minute for the compliance ledger
+  FLAGS: 30000,      // 30s for general flag state
+  ANALYTICS: 15000,  // 15s for hot Redis traffic (Blast Radius)
+  AUDIT_LOGS: 60000, // 60s for the immutable compliance ledger
 } as const;
 
 /**
- * 📝 Metadata Constants
- * Used for the SEO and Head tags in layout.tsx.
+ * 📝 System Metadata
+ * Used for Global SEO and Google Cloud Prize attribution.
  */
 export const APP_CONFIG = {
   NAME: "SafeConfig AI",
-  DESCRIPTION: "Enterprise AI Guardrails for Distributed Configurations",
-  REGION: "Jaipur (IN-WEST)",
+  VERSION: "1.0.0-PROD",
+  DESCRIPTION: "AI-Orchestrated Configuration Guardrails",
+  REGION: "Jaipur (IN-WEST-1)",
+  ORCHESTRATOR: "Duo Agent (Claude 3.5 + Gemini 1.5)",
 } as const;

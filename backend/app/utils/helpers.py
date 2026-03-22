@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from flask import jsonify
 from loguru import logger
@@ -18,55 +19,62 @@ def api_response(success: bool, message: str, data: any = None, status_code: int
         "success": success,
         "message": message,
         "data": data,
-        "timestamp": datetime.now(timezone.utc).isoformat() # 🚀 Added for Professional Audit Trails
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     return jsonify(response), status_code
 
-def format_error(message: str, details: any = None):
-    """Formats internal error messages for client-side consumption."""
-    return {
-        "error": message,
-        "details": details
-    }
+def get_blast_radius(feature_key: str):
+    """
+    Helper to fetch live traffic from Redis.
+    Centralizes the 'Grand Prize' logic for the AI Agent.
+    """
+    from app import cache
+    if not cache:
+        return 0
+    try:
+        # Assuming a key structure like 'traffic:billing_engine'
+        traffic = cache.get(f"traffic:{feature_key}")
+        return int(traffic) if traffic else 0
+    except Exception as e:
+        logger.error(f"Redis Blast Radius lookup failed: {e}")
+        return 0
+
+def clean_llm_json(raw_text: str) -> dict:
+    """
+    Advanced AI JSON Extraction.
+    Handles Markdown blocks, trailing commas, and prefix text.
+    """
+    try:
+        # 1. Targeted Extraction using Regex (More robust than split)
+        json_match = re.search(r"(\{.*\})", raw_text, re.DOTALL)
+        if json_match:
+            cleaned = json_match.group(1)
+        else:
+            cleaned = raw_text.strip()
+
+        # 2. Basic 'Dirty' JSON Fixes (Common LLM mistakes)
+        cleaned = cleaned.replace(",}", "}").replace(",]", "]")
+        
+        return json.loads(cleaned)
+        
+    except (ValueError, json.JSONDecodeError) as e:
+        logger.error(f"LLM JSON Parse Failed: {e} | Snippet: {raw_text[:50]}")
+        
+        # 🛡️ Fail-Safe for the 'Safety Firewall' narrative
+        return {
+            "risk_score": 10,  # Fail-safe to High Risk if AI is incoherent
+            "risk_level": "high",
+            "advice": "CRITICAL: AI Audit Response was malformed. Manual verification required.",
+            "status": "BLOCKED",
+            "requires_override": True
+        }
 
 def parse_pydantic_errors(validation_error):
-    """
-    Converts complex Pydantic validation objects into a simple 
-    list of field-specific errors for the UI.
-    """
+    """Converts Pydantic errors into a UI-friendly list."""
     try:
         return [
             {"field": str(err["loc"][-1]), "message": err["msg"]}
             for err in validation_error.errors()
         ]
-    except Exception as e:
-        logger.error(f"Pydantic parse failed: {e}")
-        return [{"field": "unknown", "message": "Validation failed"}]
-
-def clean_llm_json(raw_text: str) -> dict:
-    """
-    Specialized helper for the AI Agent.
-    LLMs often wrap JSON in markdown blocks (```json ... ```).
-    This extracts and parses the raw JSON string safely.
-    """
-    try:
-        # Step 1: Remove potential Markdown formatting
-        cleaned = raw_text.strip()
-        if "```json" in cleaned:
-            cleaned = cleaned.split("```json")[1].split("```")[0].strip()
-        elif "```" in cleaned:
-            cleaned = cleaned.split("```")[1].split("```")[0].strip()
-        
-        # Step 2: Parse and return
-        return json.loads(cleaned)
-        
-    except (ValueError, IndexError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to parse LLM JSON: {e} | Raw text received: {raw_text[:100]}...")
-        
-        # 🛡️ Fail-Safe: Never return a raw error to the Agent logic
-        return {
-            "risk_score": 5,
-            "advice": "AI response was malformed. Defaulting to safe manual review.",
-            "risk_level": "medium",
-            "status": "PARSE_ERROR"
-        }
+    except Exception:
+        return [{"field": "form", "message": "Invalid input data provided."}]

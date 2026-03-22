@@ -1,39 +1,32 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api-client";
-import { API_ENDPOINTS, POLLING_INTERVALS } from "@/lib/constants";
-
-// ✅ Pulling data models from models.d.ts
+import { FlagsService } from "@/services/flags.service";
+import { POLLING_INTERVALS } from "@/lib/constants";
 import { FeatureFlag } from "@/types/models"; 
-
-// ✅ Pulling the API envelope from api.d.ts
-import { ApiResponse } from "@/types/api"; 
 
 /**
  * 🚩 useFlags Hook
- * Manages the lifecycle of Feature Flags and their AI-guarded toggles.
- * * Features:
- * - Optimistic UI updates for instant feedback.
- * - Automatic rollback if AI Guardrail (Claude 3.5/Gemini) returns a BLOCK.
- * - Automated refetching for real-time analytics sync.
+ * Purpose: Central orchestrator for Feature Flag lifecycle and AI-governed state changes.
+ * Features: 
+ * - Zero-latency Optimistic UI.
+ * - Automatic AI-Block Rollback (Claude 3.5 Sonnet).
+ * - Multi-query cache invalidation (Analytics + Audits).
  */
 export function useFlags() {
   const queryClient = useQueryClient();
 
-  // 1. Fetch all flags and their environment statuses
+  // 1. 📡 Fetch System Configurations
   const { data: flags, isLoading, error } = useQuery({
     queryKey: ["flags"],
-    queryFn: async () => {
-      // res.data is typed as ApiResponse, res.data.data is typed as FeatureFlag[]
-      const res = await api.get<ApiResponse<FeatureFlag[]>>(API_ENDPOINTS.FLAGS);
-      return res.data.data;
-    },
-    refetchInterval: POLLING_INTERVALS.AUDIT_LOGS,
+    queryFn: () => FlagsService.getAllFlags(),
+    // Keep local state fresh with metrics every 30s
+    refetchInterval: POLLING_INTERVALS?.FLAGS || 30000,
+    refetchOnWindowFocus: true,
   });
 
-  // 2. Toggle Mutation with AI Guardrail Logic
-  const toggleFlag = useMutation({
+  // 2. 🧠 AI-Guarded Mutation Logic
+  const toggleFlagMutation = useMutation({
     mutationFn: async ({ 
       flagId, 
       envId, 
@@ -43,39 +36,41 @@ export function useFlags() {
       envId: number; 
       reason: string 
     }) => {
-      const res = await api.patch(`${API_ENDPOINTS.FLAGS}/${flagId}/toggle`, {
-        environment_id: envId,
-        reason,
+      // Orchestrates the Flask PATCH call which triggers the AI audit
+      return FlagsService.toggleStatus(flagId, { 
+        environment_id: envId, 
+        reason 
       });
-      return res.data;
     },
 
     /**
-     * 🚀 Optimistic Update
-     * Updates the UI immediately. If the backend fails (e.g., Risk Score >= 8),
-     * the onError handler will revert the state.
+     * 🚀 Step 1: Optimistic Handshake
+     * Flips the switch in the UI immediately for that "Jaipur Edge" speed.
      */
     onMutate: async (variables) => {
-      // Cancel refetches so they don't overwrite our optimistic state
+      // Cancel outgoing refetches to avoid overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: ["flags"] });
 
-      // Snapshot previous state for rollback
+      // Snapshot the current cache for potential rollback
       const previousFlags = queryClient.getQueryData<FeatureFlag[]>(["flags"]);
 
-      // Update the cache immediately
+      // Perform the local state update
       queryClient.setQueryData<FeatureFlag[]>(["flags"], (old) => {
         if (!old) return [];
-        return old.map((f) => {
-          if (f.id === variables.flagId) {
+        return old.map((flag) => {
+          if (flag.id === variables.flagId) {
             return {
-              ...f,
-              statuses: f.statuses.map((s, idx) => 
-                // Assumes environment IDs start at 1 and match array order
-                (idx + 1 === variables.envId) ? { ...s, is_enabled: !s.is_enabled } : s
-              ),
+              ...flag,
+              statuses: flag.statuses.map((status) => {
+                // Precise check against the environment_id passed from the UI
+                if (status.environment_id === variables.envId) {
+                  return { ...status, is_enabled: !status.is_enabled };
+                }
+                return status;
+              }),
             };
           }
-          return f;
+          return flag;
         });
       });
 
@@ -83,28 +78,29 @@ export function useFlags() {
     },
 
     /**
-     * 🛡️ Rollback on Error
-     * Triggered if the AI Agent blocks the toggle (403 Forbidden).
+     * 🛡️ Step 2: AI Guardrail Rollback
+     * Revert state if the Audit Agent (Claude) blocks the deployment (403).
      */
-    onError: (err: any, variables, context) => {
+    onError: (err: any, _variables, context) => {
       if (context?.previousFlags) {
         queryClient.setQueryData(["flags"], context.previousFlags);
       }
       
-      const message = err.response?.data?.message || "Deployment failed";
       const report = err.response?.data?.data?.report;
+      const message = err.response?.data?.message || "AI Guardrail Blocked Action";
       
-      // Log AI reasoning for debugging/judges
-      console.warn(`[AI Guardrail] ${message} | Risk Score: ${report?.risk_score}`);
+      // Detailed console warning for your demo's "Security Trace"
+      console.warn(`[SafeConfig AI] Governance Reversion: ${message}`, report);
     },
 
     /**
-     * 🔄 Final Sync
-     * Ensure the UI is 100% in sync with the DB and Refresh Analytics (Blast Radius).
+     * 🔄 Step 3: Global Invalidation
+     * Syncs all dashboard modules (Charts, Logs, Flags) once the server confirms.
      */
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["flags"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
     },
   });
 
@@ -112,7 +108,7 @@ export function useFlags() {
     flags: flags ?? [],
     isLoading,
     error,
-    toggleFlag: toggleFlag.mutate,
-    isToggling: toggleFlag.isPending,
+    toggleFlag: toggleFlagMutation.mutate,
+    isToggling: toggleFlagMutation.isPending,
   };
 }
