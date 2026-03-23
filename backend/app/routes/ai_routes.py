@@ -1,5 +1,4 @@
 import os
-import logging
 from flask import Blueprint, request, jsonify
 from flask_login import current_user
 from app.services.ai_agent import SafeConfigAgent
@@ -16,10 +15,10 @@ def analyze_deployment_risk():
     Analyzes code diffs, correlates with Redis traffic, and enforces RBAC.
     """
     # 1. Security Handshake: Check for GitLab Token or Authenticated Session
-    agent_token = request.headers.get("X-Gitlab-Agent-Token")
+    agent_token = request.headers.get("X-SafeConfig-Agent-Token")
     is_gitlab_request = (agent_token and agent_token == os.getenv("GITLAB_AGENT_TOKEN"))
 
-    if not is_gitlab_request and not (current_user.is_authenticated):
+    if not is_gitlab_request and not current_user.is_authenticated:
         logger.warning("Unauthorized risk analysis attempt.")
         return api_response(
             success=False,
@@ -37,12 +36,14 @@ def analyze_deployment_risk():
         code_diff = json_data.get("code_diff", "") 
         description = json_data.get("description", "Audit triggered via GitLab Duo.")
 
+        if not feature_key:
+            return api_response(success=False, message="Missing 'feature_key' in request body.", status_code=400)
+
         # 2. Correlate with 'Blast Radius' (The Live Context)
-        # This is where your Redis logic comes alive for the AI
+        # This gives the AI Agent a snapshot of current traffic intensity
         traffic_stats = TrafficService.get_live_traffic_context(feature_key, environment)
         
         # 3. Invoke the Multi-Model Agent (Claude 3.5 + Gemini 1.5)
-        # We pass traffic context directly into the reasoning loop
         assessment = SafeConfigAgent.run_audit(
             feature_key=feature_key,
             environment=environment,
@@ -57,14 +58,18 @@ def analyze_deployment_risk():
 
         # 5. The "Safety Firewall" Enforcement Logic
         risk_score = assessment.get("risk_score", 0)
-        is_manager = (not is_gitlab_request and current_user.role == "manager")
+        
+        # Determine if the requester has Manager privileges
+        is_manager = False
+        if not is_gitlab_request:
+            is_manager = (current_user.role == "manager")
 
-        # 🚀 Logic: High Risk + Non-Manager = HARD BLOCK
+        # 🚀 Logic: High Risk (>= 8) + Non-Manager = HARD BLOCK
         if risk_score >= 8:
             if is_manager:
                 assessment["status"] = "PASSED_WITH_OVERRIDE"
                 assessment["requires_override"] = False
-                message = "Manager Override: High Risk change approved."
+                message = "Manager Override: High Risk change approved locally."
             else:
                 assessment["status"] = "BLOCKED"
                 assessment["requires_override"] = True
@@ -83,15 +88,16 @@ def analyze_deployment_risk():
 
     except Exception as e:
         logger.error(f"SafeConfig Logic Error: {e}")
-        # Fail-Safe: Always block by default if the AI engine is unstable
+        # 🛡️ Fail-Safe: Always block if the AI engine is unstable (Hackathon best practice)
         return api_response(
             success=True, 
             message="SafeConfig Fail-safe Active: Manual Review Required", 
             data={
                 "risk_score": 10,
                 "status": "BLOCKED",
-                "advice": f"Internal Error: {str(e)}",
-                "requires_override": True
+                "reasoning": f"Internal Reasoning Engine Error: {str(e)}",
+                "requires_override": True,
+                "sustainability_score": 5
             }, 
             status_code=200 
         )
@@ -103,5 +109,6 @@ def get_agent_status():
         "agent": "SafeConfig Duo",
         "models": ["Claude-3.5-Sonnet", "Gemini-1.5-Flash"],
         "governance_mode": "RBAC_ENFORCED",
+        "region": "jaipur-in-west-1",
         "status": "online"
     }), 200

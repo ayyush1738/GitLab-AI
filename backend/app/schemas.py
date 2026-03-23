@@ -4,9 +4,13 @@ from typing import Optional, Literal, List
 # --- Auth Schemas ---
 
 class UserSchema(BaseModel):
-    """Schema for returning user data (GitHub Auth compatible)."""
+    """
+    Schema for returning user data.
+    Ensures Next.js knows the User ID and Role for protected routes.
+    """
+    id: int
     email: EmailStr
-    role: str
+    role: Literal["manager", "developer"]
     username: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -19,17 +23,17 @@ class FlagCreateSchema(BaseModel):
     Strictly enforces naming conventions to avoid SDLC friction.
     """
     name: str = Field(..., min_length=3, max_length=50, description="Human-friendly name")
-    key: str = Field(..., pattern=r"^[a-z0-9_]+$", description="Machine-readable key") 
+    key: str = Field(..., pattern=r"^[a-zA-Z0-9_]+$", description="Machine-readable key") 
     description: Optional[str] = Field(None, max_length=200)
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     @field_validator('key')
     @classmethod
-    def key_must_be_snake_case(cls, v: str) -> str:
+    def key_must_not_contain_spaces(cls, v: str) -> str:
         if " " in v:
             raise ValueError("Key must not contain spaces")
-        return v.lower()
+        return v
 
 class FlagToggleSchema(BaseModel):
     """
@@ -46,14 +50,15 @@ class FlagToggleSchema(BaseModel):
 class RiskAnalysisSchema(BaseModel):
     """
     The input schema for the AI Reasoner (Claude/Gemini).
-    Includes 'Blast Radius' data from Redis.
+    Includes 'Blast Radius' data from the Jaipur Node Redis instance.
     """
     feature_key: str
     environment: str = "Production"
     description: Optional[str] = None
     code_diff: Optional[str] = None
+    requested_by: Optional[str] = None  # 🚀 Added for identity-aware auditing
     
-    # 🚀 The 'Grand Prize' addition: Live Context
+    # Live Context from Redis
     current_traffic: Optional[int] = Field(0, description="Live user count from Redis")
     affected_endpoints: List[str] = Field(default_factory=list)
 
@@ -70,9 +75,9 @@ class AIAssessmentResponseSchema(BaseModel):
     status: Literal["PASSED", "BLOCKED", "WARNING"]
     requires_override: bool = False
 
-    # 🚀 'Green Agent' Prize compatibility ($3,000 Bonus)
-    sustainability_score: Optional[int] = Field(None, ge=1, le=10)
-    carbon_impact_estimate: Optional[str] = None
+    # 🚀 'Green Agent' Prize compatibility ($3,000 Bonus Category)
+    sustainability_score: Optional[int] = Field(default=5, ge=1, le=10)
+    carbon_impact_estimate: Optional[str] = "Neutral"
 
     # 🏗️ GitLab Integration Fields
     gitlab_comment_id: Optional[int] = None

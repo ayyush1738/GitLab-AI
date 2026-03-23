@@ -18,7 +18,7 @@ export default function LandingPage() {
         </div>
         <nav className="ml-auto hidden md:flex gap-8 items-center">
           <Link href="#features" className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Capabilities</Link>
-          <Link href="/auth/login" className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Console Access</Link>
+          <Link href="/login" className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Console Access</Link>
           <Button variant="outline" className="border-slate-800 bg-slate-900/50 hover:bg-slate-800 text-slate-100 gap-2 h-9 text-[10px] font-black uppercase tracking-widest rounded-xl">
             <Github className="w-3.5 h-3.5" /> Source Code
           </Button>
@@ -52,7 +52,7 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-              <Link href="/dashboard">
+              <Link href="/login">
                 <Button size="lg" className="bg-white hover:bg-slate-200 text-slate-950 px-10 h-14 text-sm font-black uppercase tracking-widest rounded-2xl gap-3 shadow-xl shadow-white/5 transition-all active:scale-95">
                   Launch Console <ArrowRight className="w-4 h-4" />
                 </Button>

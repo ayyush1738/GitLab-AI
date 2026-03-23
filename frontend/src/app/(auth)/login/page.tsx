@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext"; // 🚀 Import the Auth Hook
 
 /**
- * Custom GitLab Icon to replace the deprecated GitHub branding.
- * Fits the SafeConfig AI for GitLab narrative.
+ * Custom GitLab Icon
  */
 const GitLabIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -22,16 +22,13 @@ const GitLabIcon = ({ className }: { className?: string }) => (
 
 export default function LoginPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const { login } = useAuth(); // 🔗 Connect to our Global Auth logic
 
   const handleLogin = () => {
     setIsRedirecting(true);
-    
-    // 🚀 THE BRIDGE: Redirect to your Flask Backend OAuth trigger
-    // Now pointing to a GitLab-aligned backend route if applicable, 
-    // otherwise maintaining the /auth/login structure we built.
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-    
-    window.location.href = `${backendUrl}/auth/login`;
+    // 🚀 THE BRIDGE: Use the centralized login trigger
+    // This will redirect the user to http://127.0.0.1:5000/login/gitlab
+    login();
   };
 
   return (

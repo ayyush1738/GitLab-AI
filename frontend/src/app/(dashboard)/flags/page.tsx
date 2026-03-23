@@ -37,6 +37,12 @@ export default function FlagsPage() {
   const [activeToggle, setActiveToggle] = useState<{ id: number, envId: number, key: string } | null>(null);
   const [reason, setReason] = useState("");
 
+  // 🚀 Define Feature State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEnv, setNewEnv] = useState("Production");
+  const [newBlastRadius, setNewBlastRadius] = useState("");
+
   const { data: flags, isLoading } = useQuery({
     queryKey: ["flags"],
     queryFn: async () => {
@@ -72,6 +78,31 @@ export default function FlagsPage() {
     }
   });
 
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const key = newName.replace(/[^a-zA-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+      const description = `Target: ${newEnv} | Blast Radius: ${newBlastRadius}`;
+      
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/flags`,
+        { name: newName, key, description },
+        { withCredentials: true }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["flags"] });
+      setIsCreateModalOpen(false);
+      setNewName("");
+      setNewBlastRadius("");
+      setNewEnv("Production");
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || "Creation Failed";
+      alert(`🚫 ${message}`);
+    }
+  });
+
   const filteredFlags = flags?.filter(f => 
     f.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     f.key.toLowerCase().includes(searchTerm.toLowerCase())
@@ -84,7 +115,10 @@ export default function FlagsPage() {
           <h1 className="text-3xl font-bold text-white tracking-tight">Feature Orchestrator</h1>
           <p className="text-slate-400 mt-1 text-sm font-medium">Deploy with confidence using Claude 3.5 & Gemini security gates.</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 rounded-xl shadow-lg shadow-indigo-500/20">
+        <Button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 rounded-xl shadow-lg shadow-indigo-500/20"
+        >
           <Plus size={18} /> Define New Feature
         </Button>
       </div>
@@ -165,6 +199,62 @@ export default function FlagsPage() {
               onClick={() => toggleMutation.mutate({ id: activeToggle!.id, envId: activeToggle!.envId, reason })}
             >
               {toggleMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy to Gateway"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🚀 Define New Feature Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="bg-slate-950 border-slate-800 text-white rounded-3xl max-w-md shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Zap className="text-indigo-500" />
+              Define New Feature
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Feature Name</label>
+              <Input 
+                className="bg-slate-900 border-slate-800 text-white focus-visible:ring-indigo-500"
+                placeholder="e.g. NextGen Payment Gateway"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Environment</label>
+              <select 
+                className="w-full h-10 bg-slate-900 border border-slate-800 rounded-md px-3 text-sm focus:outline-none focus:border-indigo-500"
+                value={newEnv}
+                onChange={(e) => setNewEnv(e.target.value)}
+              >
+                <option>Development</option>
+                <option>Staging</option>
+                <option>Production</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Blast Radius Description</label>
+              <textarea 
+                className="w-full h-24 bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="Describe the impacted services and fallback strategies..."
+                value={newBlastRadius}
+                onChange={(e) => setNewBlastRadius(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 h-10">Cancel</Button>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-500 font-bold px-8 rounded-xl h-10 shadow-lg shadow-indigo-500/20"
+              disabled={newName.length < 3 || newBlastRadius.length < 5 || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy Architecture"}
             </Button>
           </DialogFooter>
         </DialogContent>

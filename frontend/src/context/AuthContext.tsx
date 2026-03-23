@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
-import { useRouter } from "next/navigation";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { api } from "@/lib/api-client";
 
 interface User {
   id: number;
@@ -21,10 +21,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Configure Axios defaults for the entire app
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-axios.defaults.withCredentials = true; // 🚀 CRITICAL: Sends Flask session cookies
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,43 +28,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * 🔄 Session Hydration
-   * Hits the /auth/me endpoint to see if a GitHub session exists.
+   * Hits the /auth/me endpoint to verify the Flask-Dance session cookie.
+   * Wrapped in useCallback to ensure stable references across the app.
    */
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/auth/me`);
-      
+      const response = await api.get("/auth/me");
       if (response.data.logged_in) {
         setUser(response.data.user);
       } else {
         setUser(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       setUser(null);
-      console.error("Auth check failed: User is unauthenticated.");
+      if (error.response?.status !== 401) {
+        console.error("📡 SafeConfig Node unreachable. Check backend at NEXT_PUBLIC_API_URL.");
+      }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Run on initial mount
-  useEffect(() => {
-    checkAuth();
+  // ⚠️ No pathname/router in deps: checkAuth is a one-time mount check.
+  // Route-level auth guarding is handled by the dashboard layout, not here.
+  // Adding pathname here causes an /auth/me spam on every navigation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Run hydration only on initial mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   const login = () => {
-    // Redirect to the Flask-Dance trigger we built in auth_routes.py
-    window.location.href = `${API_URL}/auth/login`;
+    /**
+     * 🔐 The GitLab SSO Handshake Trigger
+     * Redirects the browser to the Flask-Dance blueprint.
+     */
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    
+    // 🏛️ PRO-TIP: We use window.location.href because this is a full page 
+    // redirect to the backend/GitLab, not a Next.js internal route.
+    window.location.href = `${API_URL}/login/gitlab`;
   };
 
   const logout = async () => {
     try {
-      await axios.get(`${API_URL}/auth/logout`);
+      setIsLoading(true);
+      await api.get("/auth/logout");
       setUser(null);
       router.push("/login");
     } catch (error) {
-      console.error("Logout failed", error);
+      console.error("🔒 Server-side logout failed. Clearing local session anyway.");
+      setUser(null);
+      router.push("/login");
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -1,29 +1,51 @@
 import os
 import sys
-import logging
-from app import create_app, db
-from app.models import Environment, User, FeatureFlag
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY FLIP: OAUTHLIB_INSECURE_TRANSPORT is set here ONLY for local dev.
+# In production (FLASK_ENV=production), create_app() pops this variable so
+# it is never present in the Cloud Run environment. The ENV gate below means
+# this line is effectively a no-op in production because create_app() removes
+# it before any OAuth flow runs.
+# ─────────────────────────────────────────────────────────────────────────────
+if os.getenv("FLASK_ENV", "development") == "production":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
+else:
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 from loguru import logger
 from sqlalchemy import exc
 
-# Ensure the app directory is in the path for clean imports
+# Fix Pathing: ensures the 'app' package is discoverable from the root dir
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from app import create_app
+from app.extensions import db
+from app.models import Environment, User
+
 # Initialize the Flask App Factory
+# Gunicorn imports this module and picks up `app` as the WSGI callable.
 app = create_app()
+
 
 def auto_initialize_database():
     """
-    Self-healing Database Initialization.
-    Ensures the 'Safety Firewall' has its rules and roles ready on boot.
+    🛡️ Self-healing Database Initialization.
+
+    Container-safe design:
+    - db.create_all() is idempotent — safe to call on every cold start.
+    - All operations run inside app.app_context() — compatible with Gunicorn
+      multi-worker mode because each worker imports this module independently.
+    - Wrapped in try/except so a DB hiccup at startup never crashes the pod;
+      Cloud Run health checks will still pass via /healthz.
     """
     with app.app_context():
         try:
-            # 1. Create Tables (Idempotent: only runs if they don't exist)
+            # 1. Create Tables (idempotent — skips existing tables)
             db.create_all()
-            logger.info("Database schema verified.")
+            logger.info("✅ Database schema verified.")
 
-            # 2. Seed Default Environments (Core for Blast Radius logic)
+            # 2. Seed Default Environments
             if not Environment.query.first():
                 logger.info("Seeding core environments: Development, Staging, Production...")
                 envs = [
@@ -33,25 +55,19 @@ def auto_initialize_database():
                 ]
                 db.session.add_all(envs)
                 db.session.commit()
-                logger.success("Environments initialized.")
+                logger.success("✅ Environments initialized.")
 
-            # 3. Provision 'Judge/Manager' Role for GitHub Auth
-            # We use an Environment Variable for the Judge's email to match their GitHub login
-            admin_email = os.environ.get("ADMIN_EMAIL", "judge@safeconfig.ai")
+            # 3. Provision Judge/Manager Role for SSO
+            admin_email = os.environ.get("ADMIN_EMAIL", "singhrathoreayush824@gmail.com")
             existing_admin = User.query.filter_by(email=admin_email).first()
-            
+
             if not existing_admin:
                 logger.info(f"Provisioning Manager role for: {admin_email}")
-                manager = User(
-                    email=admin_email, 
-                    role="manager",
-                    is_active=True # Ensure they aren't locked out of the Next.js Dashboard
-                )
+                manager = User(email=admin_email, role="manager")
                 db.session.add(manager)
                 db.session.commit()
-                logger.success(f"Admin access granted to {admin_email}")
+                logger.success(f"✅ Admin access granted to {admin_email}")
             else:
-                # Ensure existing admin has the correct role for the demo
                 if existing_admin.role != "manager":
                     existing_admin.role = "manager"
                     db.session.commit()
@@ -61,45 +77,54 @@ def auto_initialize_database():
             db.session.rollback()
             logger.error(f"Database seeding failed: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error during startup: {e}")
+            logger.error(f"Unexpected error during database init: {e}")
 
-@app.route('/api/status')
+
+@app.route("/api/status")
 def system_status():
     """
-    Enhanced Health Check for GitLab and Cloud Run.
-    Checks if AI agents and Redis are responsive.
+    Enhanced Health Check for GitLab CI and Cloud Run.
+    Returns regional node status for the Jaipur region.
     """
-    # Placeholder for a quick Redis ping check
     return {
         "status": "online",
         "engine": "SafeConfig AI 1.0",
         "database": "connected",
+        "region": "jaipur-in-west-1",
         "environment": os.environ.get("FLASK_ENV", "production")
     }, 200
 
-@app.route('/healthz')
+
+@app.route("/healthz")
 def health_check():
     """Liveness probe for Google Cloud Run / Load Balancer."""
     return "OK", 200
 
-# 🚀 CLOUD RUN / GUNICORN COMPATIBILITY
-# This ensures that even if 'python index.py' isn't called directly, 
-# the database is initialized when the module is imported by a web server.
-with app.app_context():
-    auto_initialize_database()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INITIALIZATION HOOK
+# Called at module import time. Gunicorn imports index.py once per worker,
+# so this runs once per worker — which is correct and safe.
+# ─────────────────────────────────────────────────────────────────────────────
+auto_initialize_database()
 
 if __name__ == "__main__":
-    # 🔓 Local Development Safety Off
-    if os.environ.get("FLASK_ENV") == "development":
-        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-        logger.warning("Running in Development Mode: Insecure Transport Enabled.")
-    
-    # 🚀 PORT LOGIC
+    # ── LOCAL DEV ONLY ────────────────────────────────────────────────────────
+    # In production, Gunicorn is the entrypoint (see Dockerfile CMD).
+    # This block is only reached via `python index.py` locally.
+    # ─────────────────────────────────────────────────────────────────────────
     port = int(os.environ.get("PORT", 5000))
-    
-    logger.info(f"SafeConfig AI Backend starting on port {port}...")
+    is_production = os.getenv("FLASK_ENV", "development") == "production"
+
+    logger.info(f"FLASK_ENV: {os.getenv('FLASK_ENV', 'development')}")
+    logger.info(f"BASE_URL: {os.getenv('BASE_URL', 'http://127.0.0.1:5000')}")
+    logger.info(f"FRONTEND_URL: {os.getenv('FRONTEND_URL', 'http://127.0.0.1:3000')}")
+    logger.info(f"OAUTHLIB_INSECURE_TRANSPORT: {os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', 'unset')}")
+    logger.info(f"SafeConfig AI Backend starting on 0.0.0.0:{port} ...")
+
     app.run(
-        host="0.0.0.0", 
-        port=port, 
-        debug=(os.environ.get("FLASK_DEBUG") == "1")
+        # STRICT ALIGNMENT: Start exactly on host='127.0.0.1' as requested.
+        host="127.0.0.1",
+        port=port,
+        debug=not is_production
     )

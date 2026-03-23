@@ -37,13 +37,16 @@ export const RISK_THRESHOLDS = {
 /**
  * 📡 API Endpoint Registry
  * Centralizes the base paths for your Flask Blueprints.
+ * These map exactly to the url_prefix values in __init__.py.
  */
 export const API_ENDPOINTS = {
-  AUTH: "/auth",
-  AI: "/api/ai",
-  FLAGS: "/api/flags",
-  ANALYTICS: "/api/analytics", // 🚀 Added for Blast Radius telemetry
+  AUTH: "/auth",          // auth_bp → /auth/me, /auth/logout
+  AI: "/api/ai",          // ai_bp   → /api/ai/analyze, /api/ai/eco-report
+  FLAGS: "/api/flags",    // flags_bp → /api/flags, /api/flags/:id/toggle, /api/flags/analytics
+  // ⚠️ Note: Analytics/Blast Radius data comes from /api/flags/analytics (in FLAGS).
+  // There is NO separate /api/analytics route in the Flask backend.
 } as const;
+
 
 /**
  * 📊 UI & Brand System
