@@ -90,14 +90,24 @@ def create_app():
 
     # (Already declared base_url and frontend_url earlier for the cookie domain)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # 🛡️ THE ANTI-GRAVITY CORS FIX
+    # We use an explicit list because wildcard "*" is forbidden with credentials.
+    # ─────────────────────────────────────────────────────────────────────────
+    import re
+
+    # 🛡️ THE UNIVERSAL HANDSHAKE FIX
+    # This regex allows:
+    # 1. Any localhost/127.0.0.1 port (3000, 3001, 5173, etc.)
+    # 2. Any subdomain of your future production domain
     CORS(app,
-         resources={r"/*": {
-             "origins": [frontend_url]
+         resources={r"/api/*": {
+             "origins": re.compile(r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app)(:\d+)?$")
          }},
          supports_credentials=True,
          allow_headers=["Content-Type", "X-SafeConfig-Source", "Authorization"],
          methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-         expose_headers=["Content-Type", "X-SafeConfig-Source"])
+         expose_headers=["X-SafeConfig-Source"])
 
     # 3. Resilient Redis Initialization
     redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")

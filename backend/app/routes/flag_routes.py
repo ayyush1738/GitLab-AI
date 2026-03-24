@@ -91,6 +91,31 @@ def toggle_flag(flag_id: int):
         logger.error(f"Toggle failure for flag {flag_id}: {e}")
         return api_response(False, "System Error", format_error(str(e)), 500)
 
+@flags_bp.route("/evaluate/<string:key>", methods=["GET"])
+def evaluate_flag(key: str):
+    # Normalize input: strip whitespace and match your DB casing (usually lowercase)
+    # If your DB uses "Development", keep it as .title(), if "development", use .lower()
+    env = request.args.get("env", "Production").strip() 
+    
+    # 🔍 PRO-TIP: Print this to your terminal to see exactly what the SDK is sending
+    # logger.info(f"Evaluating {key} for environment: {env}")
+
+    result = FlagService.get_flag_status_by_key(key, env)
+    
+    if result is None:
+        return api_response(False, f"Flag '{key}' in '{env}' not found.", {"enabled": False}, 404)
+        
+    FlagService.track_evaluation(key, env)
+    
+    # Check if 'result' is a dictionary or a SQLAlchemy object
+    is_on = False
+    if hasattr(result, 'is_enabled'):
+        is_on = result.is_enabled
+    elif isinstance(result, dict):
+        is_on = result.get('is_enabled', False) or result.get('enabled', False)
+
+    return api_response(True, "Flag Evaluation", {"enabled": is_on}, 200)
+
 @flags_bp.route("/analytics", methods=["GET"])
 @login_required
 def get_traffic_analytics():

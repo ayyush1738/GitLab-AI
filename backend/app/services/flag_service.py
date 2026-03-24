@@ -30,7 +30,7 @@ class FlagService:
             for env in envs:
                 status = FlagStatus(
                     flag_id=new_flag.id, 
-                    environment_id=env.id, # 🔗 Matches models.py column
+                    environment_id=env.id,
                     is_enabled=False
                 )
                 db.session.add(status)
@@ -44,10 +44,16 @@ class FlagService:
 
     @staticmethod
     def get_flag_status_by_key(key, env_name):
-        """Helper for SDKs to check if a feature is enabled in a specific env."""
+        """
+        Helper for SDKs to check if a feature is enabled.
+        🛡️ ANTI-GRAVITY FIX: Case-insensitive matching for environment name.
+        """
+        # Search for flag and environment (ilike handles Development vs development)
         flag = FeatureFlag.query.filter_by(key=key).first()
-        env = Environment.query.filter_by(name=env_name).first()
+        env = Environment.query.filter(Environment.name.ilike(env_name)).first()
+        
         if not flag or not env:
+            logger.warning(f"SDK EVAL FAIL: {key} in {env_name} not found.")
             return None
             
         status = FlagStatus.query.filter_by(flag_id=flag.id, environment_id=env.id).first()
@@ -75,31 +81,36 @@ class FlagService:
         # 2. Trigger AI Audit for Production changes
         ai_report = None
         if env.name.lower() == "production":
-            ai_report = SafeConfigAgent.run_audit(
-                feature_key=flag.key,
-                environment=env.name,
-                code_diff="[DASHBOARD_TOGGLE_REQUEST]",
-                description=f"Manual toggle requested. Reason: {data.reason}"
-            )
-            
-            # 3. ENFORCEMENT: If risk is high (>=8), only a Manager can proceed
-            risk_score = ai_report.get('risk_score', 0)
-            if risk_score >= 8 and user.role != 'manager':
-                blocked_log = AuditLog(
-                    flag_id=flag_id,
-                    env_name=env.name,
-                    action="AI_BLOCK",
-                    reason=f"[SECURITY BLOCK] {data.reason}",
-                    risk_score=risk_score,
-                    sustainability_score=ai_report.get('sustainability_score', 5),
-                    blast_radius=current_traffic,
-                    ai_metadata=ai_report
+            try:
+                ai_report = SafeConfigAgent.run_audit(
+                    feature_key=flag.key,
+                    environment=env.name,
+                    code_diff="[DASHBOARD_TOGGLE_REQUEST]",
+                    description=f"Manual toggle requested. Reason: {data.reason}"
                 )
-                db.session.add(blocked_log)
-                db.session.commit()
-                return None, {"message": "High Risk: Manager override required.", "report": ai_report}
+                
+                # 3. ENFORCEMENT: If risk is high (>=8), only a Manager can proceed
+                risk_score = ai_report.get('risk_score', 0)
+                if risk_score >= 8 and user.role != 'manager':
+                    blocked_log = AuditLog(
+                        flag_id=flag_id,
+                        env_name=env.name,
+                        action="AI_BLOCK",
+                        reason=f"[SECURITY BLOCK] {data.reason}",
+                        risk_score=risk_score,
+                        sustainability_score=ai_report.get('sustainability_score', 5),
+                        blast_radius=current_traffic,
+                        ai_metadata=ai_report
+                    )
+                    db.session.add(blocked_log)
+                    db.session.commit()
+                    return None, {"message": "High Risk: Manager override required.", "report": ai_report}
+            except Exception as e:
+                logger.error(f"AI Audit Failed during toggle: {e}")
+                # Fail-safe: Block production changes if AI is down
+                return None, {"message": "AI Engine Offline. Production changes locked for safety."}
 
-        # 4. Process the toggle if checks pass or if user is Manager
+        # 4. Process the toggle if checks pass
         try:
             status = FlagStatus.query.filter_by(flag_id=flag_id, environment_id=env.id).first()
             if not status:
@@ -110,6 +121,7 @@ class FlagService:
             new_state = "ON" if status.is_enabled else "OFF"
             
             risk_val = ai_report.get('risk_score') if ai_report else 0
+            # Logic: If high risk but user is manager, it's an override
             log_action = f"MANAGER_OVERRIDE_{new_state}" if (risk_val >= 8) else f"TOGGLE_{new_state}"
 
             success_log = AuditLog(
@@ -146,13 +158,19 @@ class FlagService:
             cache.incr(f"traffic:{key}")
         
         # Persistent Telemetry Hit for the Dashboard graphs
-        hit = FlagEvaluation(
-            flag_id=flag.id, 
-            env_name=env_name, # 🔗 Sync with model column name
-            request_count=1 # Increment count by 1
-        )
-        db.session.add(hit)
-        db.session.commit()
+        # We wrap this in a try-block to ensure SDK evaluation isn't slowed by DB lag
+        try:
+            hit = FlagEvaluation(
+                flag_id=flag.id, 
+                env_name=env_name,
+                request_count=1
+            )
+            db.session.add(hit)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"Telemetry persistence failed: {e}")
+
         return True
 
     @staticmethod
