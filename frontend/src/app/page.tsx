@@ -52,11 +52,11 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-              <Link href="/login">
-                <Button size="lg" className="bg-white hover:bg-slate-200 text-slate-950 px-10 h-14 text-sm font-black uppercase tracking-widest rounded-2xl gap-3 shadow-xl shadow-white/5 transition-all active:scale-95">
+              <Button asChild size="lg" className="bg-white hover:bg-slate-200 text-slate-950 px-10 h-14 text-sm font-black uppercase tracking-widest rounded-2xl gap-3 shadow-xl shadow-white/5 transition-all active:scale-95">
+                <Link href="/login">
                   Launch Console <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 h-14 px-10 rounded-2xl text-sm font-black uppercase tracking-widest gap-2">
                 <Cpu className="w-4 h-4" /> View Technical Spec
               </Button>

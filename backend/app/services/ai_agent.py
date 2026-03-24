@@ -3,7 +3,7 @@ import json
 from typing import Dict, Any
 from loguru import logger
 
-# 🚀 MODERN LANGCHAIN v0.3+ STANDARDS
+# 🚀 MODERN LANGCHAIN STANDARDS
 from langgraph.prebuilt import create_react_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -20,7 +20,7 @@ class SafeConfigAgent:
     def fetch_blast_radius(feature_key: str) -> str:
         """
         Queries Redis/PostgreSQL for real-time user traffic for a specific feature.
-        Call this tool to determine the 'High Impact' status of a deployment.
+        MUST be called to determine the 'High Impact' status of a deployment.
         """
         try:
             # 🔗 Lazy import to avoid circular dependencies during Flask boot
@@ -37,7 +37,8 @@ class SafeConfigAgent:
         Executes an agentic reasoning loop using Claude 3.5 Sonnet.
         Parallelizes with Gemini 1.5 Flash for Sustainability scoring.
         """
-        # 1. Initialize the Security Specialist (Claude 3.5)
+        
+        # 1. Initialize Claude 3.5 (Security Specialist)
         llm = ChatAnthropic(
             model="claude-3-5-sonnet-latest", 
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
@@ -46,7 +47,7 @@ class SafeConfigAgent:
 
         tools = [cls.fetch_blast_radius]
         
-        # 🛡️ System Instructions for the $10,000 Grand Prize Category
+        # 🛡️ Governance Protocol for the $10,000 Grand Prize Category
         system_instructions = (
             "You are 'SafeConfig Duo', an Autonomous Senior DevOps & Security Agent.\n"
             "Your mission: Audit Merge Requests for deployment risk and blast radius.\n\n"
@@ -55,18 +56,23 @@ class SafeConfigAgent:
             "2. RISK LOGIC: If users > 5000, risk_score MUST be >= 8. If sensitive (Auth/Payments), score +2.\n"
             "3. MITIGATION: If the diff shows a 'try/catch' or 'circuit breaker', reduce score by 1.\n"
             "4. OUTPUT: Return ONLY a raw JSON object. No markdown, no conversational filler.\n\n"
-            "REQUIRED KEYS:\n"
+            "REQUIRED JSON KEYS:\n"
             "- risk_score (int: 1-10)\n"
             "- risk_level (str: low, medium, high)\n"
             "- reasoning (str: concise technical justification)\n"
             "- status (str: PASSED, BLOCKED, or WARNING)"
         )
 
-        # 🏗️ Create the ReAct Agent (Replacing legacy AgentExecutor)
-        agent_executor = create_react_agent(llm, tools, state_modifier=system_instructions)
+        # 🏗️ UNIVERSAL AGENT CONSTRUCTOR
+        # We remove the modifier keywords entirely to stop the 500 TypeError.
+        # This makes the code compatible with older and newer LangGraph versions.
+        agent_executor = create_react_agent(llm, tools)
 
         try:
+            # 🛡️ SYSTEM PROMPT INJECTION
+            # We pass the instructions as a 'system' message directly in the invoke call.
             input_context = (
+                f"{system_instructions}\n\n" 
                 f"Audit Request:\n"
                 f"Feature Key: {feature_key}\n"
                 f"Target Environment: {environment}\n"
@@ -76,17 +82,17 @@ class SafeConfigAgent:
             
             # 🧠 Start the Agentic Reasoning Loop
             result = agent_executor.invoke({"messages": [("human", input_context)]})
+            
+            # Extract content from the last response in the thread
             final_content = result["messages"][-1].content
             
-            # Use our helper to strip any LLM markdown/chatter
             from app.helpers import clean_llm_json
             report = clean_llm_json(final_content)
 
             # 🌿 2. Parallel Sustainability Audit (Gemini 1.5 Flash)
-            # Targets the $3,000 Green Software Bonus Category
             green_data = cls.get_sustainability_impact(code_diff)
             
-            # Merge results for the AuditLog database model
+            # Enrich the report for the AuditLog
             report["sustainability_score"] = green_data.get("sustainability_score", 5)
             report["green_advice"] = green_data.get("green_advice", "Efficiency audit skipped.")
 
@@ -98,9 +104,9 @@ class SafeConfigAgent:
             return {
                 "risk_score": 10, 
                 "risk_level": "high",
-                "reasoning": "Internal Agent Error. High-risk fallback triggered.", 
+                "reasoning": f"Critical AI Failure: {str(e)}. Fallback to BLOCKED status for safety.", 
                 "status": "BLOCKED",
-                "sustainability_score": 5
+                "sustainability_score": 1
             }
 
     @staticmethod
@@ -117,7 +123,7 @@ class SafeConfigAgent:
 
             prompt = (
                 "Review this code diff for environmental sustainability.\n"
-                "Look for: O(n^2) loops, redundant API calls, and missing cache logic.\n"
+                "Focus on: Redundant loops, heavy API calls, or missing caching.\n"
                 f"Diff: {code_diff}\n\n"
                 "Return ONLY raw JSON: {\"sustainability_score\": 1-10, \"green_advice\": \"\"}"
             )

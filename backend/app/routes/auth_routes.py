@@ -118,7 +118,10 @@ def gitlab_logged_in(blueprint, token):
 
     # ── Step 3: Handle User Logic & Role Assignment ───────────────────────────
     admin_email = os.environ.get("ADMIN_EMAIL", "singhrathoreayush824@gmail.com")
-    is_admin = (gitlab_email == admin_email)
+    is_admin = (
+        (gitlab_email and gitlab_email.lower() == admin_email.lower()) or 
+        (gitlab_username == "ayyush1738") # Backup check
+    )
 
     user = User.query.filter_by(email=gitlab_email).first()
 

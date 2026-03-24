@@ -26,7 +26,12 @@ def list_flags():
         "key": f.key,
         "description": f.description,
         "statuses": [
-            {"env": s.environment.name, "enabled": s.is_enabled} 
+            {
+                "environment_id": s.environment_id,
+                "environment_name": s.environment.name,
+                "is_enabled": s.is_enabled,
+                "updated_at": s.updated_at.isoformat() if hasattr(s, 'updated_at') and s.updated_at else None
+            } 
             for s in f.statuses
         ]
     } for f in flags]

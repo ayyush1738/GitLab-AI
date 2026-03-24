@@ -111,3 +111,8 @@ class TrafficService:
             db.session.rollback()
             logger.error(f"Metric cleanup failed: {e}")
             return 0
+
+# 🚀 MODULE-LEVEL EXPORTS
+# These aliases allow 'from app.services.traffic_service import get_live_traffic' to work
+get_live_traffic = TrafficService.get_live_traffic
+get_live_traffic_context = TrafficService.get_live_traffic_context

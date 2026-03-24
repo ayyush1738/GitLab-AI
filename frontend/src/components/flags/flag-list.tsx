@@ -1,26 +1,41 @@
 "use client";
 
-import { useFlags } from "@/hooks/use-flags";
 import { FlagCard } from "./flag-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ShieldAlert, PlusCircle, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// --- Local Interfaces ---
+interface Flag {
+  id: number;
+  name: string;
+  key: string;
+  description: string;
+  statuses: any[];
+}
+
 interface FlagListProps {
+  flags: Flag[] | undefined;
+  isLoading: boolean;
   searchQuery: string;
   onOpenCreateModal: () => void;
+  // 🛡️ SafeConfig Governance: Strict typing for the toggle handshake
+  onToggleRequest: (flagId: number, envId: number, key: string) => void;
+  isToggling: boolean;
 }
 
 /**
  * 🗂️ Flag List Grid
- * Purpose: Dynamically renders the AI-guarded feature gates.
- * Features: 
- * - Filtered search results.
- * - Role-aware action handling (via toggleFlag).
- * - Enterprise-grade empty states.
+ * Purpose: Dynamically renders the AI-guarded feature gates with staggered entrance animations.
  */
-export function FlagList({ searchQuery, onOpenCreateModal }: FlagListProps) {
-  const { flags, isLoading, toggleFlag, isToggling } = useFlags();
+export function FlagList({ 
+  flags, 
+  isLoading, 
+  searchQuery, 
+  onOpenCreateModal,
+  onToggleRequest,
+  isToggling 
+}: FlagListProps) {
 
   // 🔍 Search Logic: Filters by Name or Key
   const filteredFlags = flags?.filter((flag) =>
@@ -28,10 +43,10 @@ export function FlagList({ searchQuery, onOpenCreateModal }: FlagListProps) {
     flag.key.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 🌀 Loading State: Triggered during initial fetch or cache invalidation
+  // 🌀 Loading State: Visual feedback for Jaipur Cloud Node synchronization
   if (isLoading) {
     return (
-      <div className="py-20 flex justify-center">
+      <div className="py-20 flex justify-center w-full">
         <LoadingState message="Synchronizing AI-guarded features from Jaipur Cloud Node..." />
       </div>
     );
@@ -40,7 +55,7 @@ export function FlagList({ searchQuery, onOpenCreateModal }: FlagListProps) {
   // 🏜️ Global Empty State: No flags exist in the database
   if (!flags || flags.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 bg-slate-900/20 border border-dashed border-slate-800 rounded-[3rem] text-center px-6 animate-in fade-in zoom-in duration-500">
+      <div className="flex flex-col items-center justify-center py-32 bg-slate-900/20 border border-dashed border-slate-800 rounded-[3rem] text-center px-6 animate-in fade-in zoom-in duration-500 w-full">
         <div className="bg-indigo-500/10 p-4 rounded-full mb-6">
           <ShieldAlert className="w-10 h-10 text-indigo-500/50" />
         </div>
@@ -61,7 +76,7 @@ export function FlagList({ searchQuery, onOpenCreateModal }: FlagListProps) {
   // 🏜️ Search Empty State: Filter returns nothing
   if (filteredFlags?.length === 0) {
     return (
-      <div className="py-32 flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-top-4">
+      <div className="py-32 flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-top-4 w-full">
         <div className="bg-slate-800/50 p-3 rounded-2xl mb-4">
           <SearchX className="w-8 h-8 text-slate-600" />
         </div>
@@ -73,32 +88,18 @@ export function FlagList({ searchQuery, onOpenCreateModal }: FlagListProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700 w-full">
       {filteredFlags?.map((flag, index) => (
         <div 
           key={flag.id} 
-          style={{ animationDelay: `${index * 100}ms` }}
+          style={{ animationDelay: `${index * 80}ms` }}
           className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
         >
           <FlagCard 
-            flag={flag} 
+            flag={flag as any} 
             isPending={isToggling}
-            onToggle={(envId) => {
-              /**
-               * 🛡️ SafeConfig Governance Protocol:
-               * Every toggle requires a justification for the Claude 3.5 Audit.
-               * Using prompt for now; recommend replacing with a custom Modal for production.
-               */
-              const justification = prompt(`Enter justification for toggling ${flag.key}:`);
-              
-              if (justification) {
-                toggleFlag({ 
-                  flagId: flag.id, 
-                  envId: envId, // Corrected mapping to use envId
-                  reason: justification 
-                });
-              }
-            }} 
+            // ✅ Explicit Type fix: (envId: number) resolves the 'implicitly any' error
+            onToggle={(envId: number) => onToggleRequest(flag.id, envId, flag.key)} 
           />
         </div>
       ))}
