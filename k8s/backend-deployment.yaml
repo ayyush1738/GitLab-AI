@@ -1,0 +1,63 @@
+---
+# Green Optimized Flask Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: safeconfig-backend
+  namespace: safeconfig-agent
+  labels:
+    app: safeconfig-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: safeconfig-backend
+  template:
+    metadata:
+      labels:
+        app: safeconfig-backend
+    spec:
+      containers:
+        - name: backend
+          image: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/safeconfig/backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: FLASK_ENV
+              value: "production"
+            - name: GITLAB_AGENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: safeconfig-secrets
+                  key: gitlab-agent-token
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: safeconfig-secrets
+                  key: gemini-api-key
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: safeconfig-secrets
+                  key: anthropic-api-key
+          # 🌿 RESOURCE BUDGET: Capped to 256Mi RAM and 200m CPU (Green Software Prize Alignment)
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/ai/agent-status
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/ai/agent-status
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15

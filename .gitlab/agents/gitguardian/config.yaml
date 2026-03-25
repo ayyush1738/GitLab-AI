@@ -46,3 +46,11 @@ events:
 governance:
   require_manager_approval: true
   risk_threshold: 8
+
+# 5. Pipeline & CI/CD Access
+user_access:
+  access_as:
+    agent: {} # for free
+    # user: {} # Uncomment for premium+
+  projects:
+    - id: <your_gitlab_username/your_project_name> # REPLACE THIS WITH YOUR CURRENT PROJECT PATH

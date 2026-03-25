@@ -1,0 +1,79 @@
+stages:
+  - build
+  - trigger-agent
+  - deploy
+
+variables:
+  # GCP Identity Federation - Setup required in GitLab Portal
+  GCP_PROJECT_ID: $GCP_PROJECT_ID 
+  GCP_WORKLOAD_IDENTITY_PROVIDER: $GCP_WORKLOAD_IDENTITY_PROVIDER
+  GCP_SERVICE_ACCOUNT: $GCP_SERVICE_ACCOUNT
+  BACKEND_IMAGE: us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend:$CI_COMMIT_SHORT_SHA
+  
+  # Agent config
+  KUBE_CONTEXT: $CI_PROJECT_PATH:gitguardian
+
+# 🚀 Job 1: Build & Push Backend Image to Google Artifact Registry
+build-images:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  before_script:
+    # Authenticate to GCP using Workload Identity (No long-lived keys!)
+    - echo ${GCP_OIDC_TOKEN} > /tmp/.gcp-oidc-token
+    - gcloud iam workload-identity-pools create-cred-config ${GCP_WORKLOAD_IDENTITY_PROVIDER}
+      --service-account="${GCP_SERVICE_ACCOUNT}"
+      --output-file=/tmp/.gcp-credentials.json
+      --credential-source-file=/tmp/.gcp-oidc-token
+    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/.gcp-credentials.json
+    - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+  script:
+    # Build Backend
+    - docker build -t $BACKEND_IMAGE -t us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend:latest ./backend
+    - docker push us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend --all-tags
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# 🤖 Job 2: Audit - Triggers the GitLab Agent to analyze Risk using Anthropic / Gemini
+agent-risk-audit:
+  stage: trigger-agent
+  image: curlimages/curl:latest
+  script:
+    - |
+      echo "Triggering SafeConfig AI Agent..."
+      curl -X POST "http://safeconfig-backend-svc.safeconfig-agent.svc.cluster.local/api/ai/analyze-risk" \
+        -H "Content-Type: application/json" \
+        -H "X-SafeConfig-Agent-Token: $GITLAB_AGENT_TOKEN" \
+        -d '{
+          "feature_key": "deployment_'$CI_COMMIT_SHORT_SHA'",
+          "environment": "Production",
+          "code_diff": "Commit '$CI_COMMIT_SHORT_SHA' - Automated Deployment Pipeline Trigger",
+          "description": "Pre-deployment blast radius audit."
+        }'
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ☸️ Job 3: GitOps Sync via GitLab Agent for Kubernetes
+deploy-to-gke:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  environment:
+    name: production
+  script:
+    # Connect to the GitLab Agent (KUBE_CONTEXT)
+    - kubectl config use-context $KUBE_CONTEXT
+    
+    # Apply the Green-Optimized Manifests
+    - kubectl apply -f k8s/services.yaml
+    
+    # Update deployments with the fresh image tags
+    - sed -i "s|latest|$CI_COMMIT_SHORT_SHA|g" k8s/backend-deployment.yaml
+    - kubectl apply -f k8s/backend-deployment.yaml
+    
+    - kubectl rollout status deployment/safeconfig-backend -n safeconfig-agent
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
