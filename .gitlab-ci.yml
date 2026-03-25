@@ -31,7 +31,9 @@ build-images:
       --output-file=/tmp/.gcp-credentials.json
       --credential-source-file=/tmp/.gcp-oidc-token
     - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/.gcp-credentials.json
+    - gcloud auth login --cred-file=/tmp/.gcp-credentials.json --quiet
     - gcloud config set project $GCP_PROJECT_ID
+    - gcloud auth list
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
   script:
     # Failsafe check
