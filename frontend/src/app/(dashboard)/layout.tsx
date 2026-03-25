@@ -12,8 +12,7 @@ import {
   LogOut,
   Menu,
   X,
-  User,
-  Zap
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
