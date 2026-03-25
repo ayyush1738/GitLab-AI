@@ -85,6 +85,7 @@ deploy-to-gke:
     
     # Apply the Green-Optimized Manifests
     - kubectl apply -f k8s/services.yaml
+    - kubectl apply -f k8s/redis-deployment.yaml
     
     # Update deployments with the fresh image tags and Project ID
     - sed -i "s|YOUR_GCP_PROJECT_ID|$GCP_PROJECT_ID|g" k8s/backend-deployment.yaml
