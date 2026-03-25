@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/gitguardian/backend:latest
+          image: us-central1-docker.pkg.dev/adroit-agent-491312-g4/gitguardian/backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
