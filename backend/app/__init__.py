@@ -116,9 +116,12 @@ def create_app():
     # ─────────────────────────────────────────────────────────────────────────
     
     # RULE 1: THE PUBLIC SDK (Anonymous)
+    # We strip trailing slashes to ensure exact origin matching
+    clean_frontend_url = frontend_url.rstrip('/')
+    
     CORS(app, 
          origins=[
-             frontend_url, 
+             clean_frontend_url, 
              "http://localhost:3000", 
              "http://127.0.0.1:3000",
              "http://localhost:3001",
@@ -155,9 +158,8 @@ def create_app():
         user_required=False
     )
 
-    # STRICT ALIGNMENT: Hardcoding redirect_url to 127.0.0.1 to absolutely
-    # prevent the invalid_grant / localhost mismatch bug.
-    gitlab_redirect_url = "http://127.0.0.1:5000/login/gitlab/authorized"
+    # DYNAMIC REDIRECT: Use the production BASE_URL if available
+    gitlab_redirect_url = f"{base_url.rstrip('/')}/login/gitlab/authorized"
 
     gitlab_bp = make_gitlab_blueprint(
         client_id=os.getenv("GITLAB_ID"),
