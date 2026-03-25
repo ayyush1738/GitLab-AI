@@ -68,13 +68,11 @@ def create_app():
     )
 
     # ─────────────────────────────────────────────────────────────────────────
-    # PROXY INTEGRITY: ProxyFix is mandatory for Cloud Run.
-    # Google's Load Balancer terminates TLS and forwards requests as HTTP.
-    # Without this, Flask sees http:// and generates http:// redirect URIs,
-    # which breaks the GitLab OAuth callback (GitLab always redirects to https://).
-    # x_proto=1 trusts the X-Forwarded-Proto header to reconstruct the scheme.
+    # PROXY INTEGRITY: Minimal ProxyFix for Cloud Run.
+    # We only trust the proto (HTTPS) to ensure Flask generates secure URLs.
+    # x_host is removed to prevent internal hostname leaks from the LB.
     # ─────────────────────────────────────────────────────────────────────────
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
 
     # 2. Bind Extensions
     db.init_app(app)

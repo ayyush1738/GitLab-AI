@@ -158,7 +158,7 @@ def gitlab_logged_in(blueprint, token):
     # DOMAIN UNITY: Default to 127.0.0.1 (not localhost) so the browser
     # delivers the session cookie correctly to the Next.js client.
     frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-    return redirect(f"{frontend_url}/dashboard")
+    return redirect(f"{frontend_url.rstrip('/')}/dashboard")
 
 
 def gitlab_error_handler(blueprint, error, error_description=None, **kwargs):
