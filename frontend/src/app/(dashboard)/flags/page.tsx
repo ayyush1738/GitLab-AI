@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { 
   Plus, Search, ShieldCheck, Zap, Loader2, 
-  AlertTriangle, Clock, Server, ShieldAlert, Activity 
+  AlertTriangle, ShieldAlert, Activity 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FlagCard } from "@/components/flags/flag-card";
