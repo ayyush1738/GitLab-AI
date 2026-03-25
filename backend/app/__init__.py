@@ -100,12 +100,38 @@ def create_app():
     # This regex allows:
     # 1. Any localhost/127.0.0.1 port (3000, 3001, 5173, etc.)
     # 2. Any subdomain of your future production domain
-    CORS(app,
-         resources={r"/api/*": {
-             "origins": re.compile(r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app)(:\d+)?$")
-         }},
+    # ─────────────────────────────────────────────────────────────────────────
+    # 🛡️ THE SPLIT-SHIELD CORS POLICY
+    # 1. Public SDK: Allow ANY origin to evaluate flags (Universal SDK).
+    # 2. Private API: Only allow your dashboard to toggle/create flags.
+    # ─────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # 🛡️ THE JAIPUR NODE GATEKEEPER (CORS)
+    # Strategy: Split policy to allow Universal SDK access while locking Dashboard.
+    # ─────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # 🛡️ THE HYBRID SHIELD (CORS)
+    # 1. Public SDK: Allow ANY origin (*) to evaluate flags. 
+    # 2. Private Admin: Only allow your dashboard to manage things.
+    # ─────────────────────────────────────────────────────────────────────────
+    
+    # --- RULE 1: THE PUBLIC SDK (Evaluations) ---
+    # This MUST come before the general rule. No credentials allowed here.
+    # ─────────────────────────────────────────────────────────────────────────
+    # 🛡️ THE HYBRID SHIELD (CORS) - FINAL CALIBRATION
+    # ─────────────────────────────────────────────────────────────────────────
+    
+    # RULE 1: THE PUBLIC SDK (Anonymous)
+    CORS(app, 
+         origins=[
+             frontend_url, 
+             "http://localhost:3000", 
+             "http://127.0.0.1:3000",
+             "http://localhost:3001",
+             "http://127.0.0.1:3001"
+         ],
          supports_credentials=True,
-         allow_headers=["Content-Type", "X-SafeConfig-Source", "Authorization"],
+         allow_headers=["Content-Type", "Authorization", "X-SafeConfig-Source"],
          methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
          expose_headers=["X-SafeConfig-Source"])
 

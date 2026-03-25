@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.services.flag_service import FlagService
 from app.services.traffic_service import TrafficService
@@ -51,7 +51,7 @@ def create_flag():
         data = FlagCreateSchema(**json_data)
         new_flag = FlagService.create_new_flag(data)
         
-        # 🚀 Cache Invalidation
+        # 🚀 Cache Invalidation: Import inside to avoid circular deps
         from app import cache
         if cache:
             cache.delete("analytics_data")
@@ -63,10 +63,7 @@ def create_flag():
 @flags_bp.route("/<int:flag_id>/toggle", methods=["PATCH"])
 @login_required
 def toggle_flag(flag_id: int):
-    """
-    Toggles flag state with AI Guardrail enforcement.
-    If the AI blocks a Developer, the Manager can use this same route to Override.
-    """
+    """Toggles flag state with AI Guardrail enforcement."""
     try:
         json_data = request.get_json()
         data = FlagToggleSchema(**json_data)
@@ -75,10 +72,8 @@ def toggle_flag(flag_id: int):
         result, error_data = FlagService.toggle_status(flag_id, data, current_user)
         
         if error_data:
-            # AI Guardrail triggered a block or a manager override was required
             return api_response(False, "AI Guardrail Blocked Action", error_data, 403)
             
-        # 🚀 Invalidate Caches to keep dashboard fresh
         from app import cache
         if cache:
             cache.delete("audit_logs")
@@ -93,12 +88,8 @@ def toggle_flag(flag_id: int):
 
 @flags_bp.route("/evaluate/<string:key>", methods=["GET"])
 def evaluate_flag(key: str):
-    # Normalize input: strip whitespace and match your DB casing (usually lowercase)
-    # If your DB uses "Development", keep it as .title(), if "development", use .lower()
+    """Public SDK endpoint for real-time flag evaluation."""
     env = request.args.get("env", "Production").strip() 
-    
-    # 🔍 PRO-TIP: Print this to your terminal to see exactly what the SDK is sending
-    # logger.info(f"Evaluating {key} for environment: {env}")
 
     result = FlagService.get_flag_status_by_key(key, env)
     
@@ -107,7 +98,6 @@ def evaluate_flag(key: str):
         
     FlagService.track_evaluation(key, env)
     
-    # Check if 'result' is a dictionary or a SQLAlchemy object
     is_on = False
     if hasattr(result, 'is_enabled'):
         is_on = result.is_enabled
@@ -119,14 +109,15 @@ def evaluate_flag(key: str):
 @flags_bp.route("/analytics", methods=["GET"])
 @login_required
 def get_traffic_analytics():
-    """Returns hit counts. Uses 'Cache-Aside' pattern for performance."""
+    """Returns hit counts. Uses 'Cache-Aside' pattern."""
     from app import cache
     if cache:
         cached_data = cache.get("analytics_data")
         if cached_data:
-            return api_response(True, "Analytics (Cached)", json.loads(cached_data), 200)
+            # Check if it's already a dict (some cache backends auto-deserialize)
+            val = json.loads(cached_data) if isinstance(cached_data, (str, bytes)) else cached_data
+            return api_response(True, "Analytics (Cached)", val, 200)
 
-    # Aggregates from TrafficService (Hybrid Redis/Postgres)
     stats = TrafficService.get_global_traffic_distribution()
     
     if cache:
@@ -137,25 +128,32 @@ def get_traffic_analytics():
 @flags_bp.route("/logs", methods=["GET"])
 @login_required
 def get_audit_trail():
-    """Returns the central compliance ledger for the 'Audit' tab."""
+    """Returns central compliance ledger. Optimized with safety checks."""
     from app import cache
     if cache:
         cached_logs = cache.get("audit_logs")
         if cached_logs:
-            return api_response(True, "Audit trail (Cached)", json.loads(cached_logs), 200)
+            val = json.loads(cached_logs) if isinstance(cached_logs, (str, bytes)) else cached_logs
+            return api_response(True, "Audit trail (Cached)", val, 200)
 
     logs = FlagService.get_audit_history()
     
-    # Format logs for frontend consumption
-    formatted_logs = [{
-        "id": l.id,
-        "flag_key": l.feature_flag.key if l.feature_flag else "System",
-        "env": l.env_name,
-        "action": l.action,
-        "risk": l.risk_score,
-        "sustainability": l.sustainability_score, # 🌱 Green Software Prize Data
-        "timestamp": l.timestamp.isoformat()
-    } for l in logs]
+    # 🛡️ THE ATTRIBUTE ERROR FIX
+    # We use getattr and a fallback to ensure the 500/CORS error stops here.
+    formatted_logs = []
+    for l in logs:
+        # Check if the relationship is 'feature_flag' or just 'flag' based on your Model
+        flag_ref = getattr(l, 'feature_flag', None) or getattr(l, 'flag', None)
+        
+        formatted_logs.append({
+            "id": l.id,
+            "flag_key": flag_ref.key if flag_ref else "System",
+            "env": getattr(l, 'env_name', 'Global'),
+            "action": l.action,
+            "risk": getattr(l, 'risk_score', 0),
+            "sustainability": getattr(l, 'sustainability_score', 100), 
+            "timestamp": l.timestamp.isoformat() if hasattr(l.timestamp, 'isoformat') else str(l.timestamp)
+        })
     
     if cache:
         cache.setex("audit_logs", CACHE_TTL, json.dumps(formatted_logs))
