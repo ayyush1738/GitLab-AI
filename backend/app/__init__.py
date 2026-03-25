@@ -36,6 +36,10 @@ def create_app():
         logging.warning("⚠️ Running over HTTP: Allowing insecure OAuth transport and cookies.")
     else:
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
+    
+    # RELAX SCOPES: This prevents session invalidation if GitLab returns more 
+    # scopes than requested (common in Production).
+    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
     # 1. Base Configuration & Security
     app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
