@@ -122,7 +122,7 @@ export default function FlagsPage() {
       });
       return { previousFlags };
     },
-    onError: (error: any, newToggle, context: any) => {
+    onError: (error: any, _newToggle, context: any) => {
       if (context?.previousFlags) {
         queryClient.setQueryData(["flags"], context.previousFlags);
       }
