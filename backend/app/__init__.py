@@ -115,18 +115,24 @@ def create_app():
     # 🛡️ THE HYBRID SHIELD (CORS) - FINAL CALIBRATION
     # ─────────────────────────────────────────────────────────────────────────
     
-    # RULE 1: THE PUBLIC SDK (Anonymous)
-    # We strip trailing slashes to ensure exact origin matching
+    # RULE 1: THE HYBRID SHIELD (CORS)
+    # We use explicit origins for credential support (required for /auth/me).
+    # Regex is used sparingly; static strings are preferred for the main dashboard.
     clean_frontend_url = frontend_url.rstrip('/')
+    allowed_origins = [
+        "https://gitguardian.vercel.app",
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
+    ]
     
+    # Add the environment frontend_url if it's unique
+    if clean_frontend_url and clean_frontend_url not in allowed_origins:
+        allowed_origins.append(clean_frontend_url)
+
     CORS(app, 
-         origins=[
-             clean_frontend_url, 
-             "http://localhost:3000", 
-             "http://127.0.0.1:3000",
-             "http://localhost:3001",
-             "http://127.0.0.1:3001"
-         ],
+         origins=allowed_origins,
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization", "X-GitGuardian-Source"],
          methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
