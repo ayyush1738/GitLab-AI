@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, request, jsonify
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app.services.ai_agent import SafeConfigAgent
 from app.services.traffic_service import TrafficService
 from app.utils.helpers import api_response, format_error
@@ -39,8 +39,7 @@ def analyze_deployment_risk():
         if not feature_key:
             return api_response(success=False, message="Missing 'feature_key' in request body.", status_code=400)
 
-        # 2. Correlate with 'Blast Radius' (The Live Context)
-        # This gives the AI Agent a snapshot of current traffic intensity
+        # 2. Correlate with 'Blast Radius' from Jaipur Node Redis
         traffic_stats = TrafficService.get_live_traffic_context(feature_key, environment)
         
         # 3. Invoke the Multi-Model Agent (Claude 3.5 + Gemini 1.5)
@@ -48,23 +47,20 @@ def analyze_deployment_risk():
             feature_key=feature_key,
             environment=environment,
             code_diff=code_diff,
-            description=description
+            description=description,
+            blast_radius=traffic_stats.get("hits_24h", 0)
         )
         
-        # 4. Enrich Response with Identity & Traffic Data
+        # 4. Enrich Response with Identity
         user_identity = "GitLab-Duo-Agent" if is_gitlab_request else current_user.email
         assessment["triggered_by"] = user_identity
         assessment["blast_radius"] = traffic_stats.get("hits_24h", 0)
 
-        # 5. The "Safety Firewall" Enforcement Logic
+        # 5. The "Anti-Gravity" Safety Firewall
         risk_score = assessment.get("risk_score", 0)
-        
-        # Determine if the requester has Manager privileges
-        is_manager = False
-        if not is_gitlab_request:
-            is_manager = (current_user.role == "manager")
+        is_manager = False if is_gitlab_request else (current_user.role == "manager")
 
-        # 🚀 Logic: High Risk (>= 8) + Non-Manager = HARD BLOCK
+        # Logic: High Risk (>= 8) + Non-Manager = HARD BLOCK
         if risk_score >= 8:
             if is_manager:
                 assessment["status"] = "PASSED_WITH_OVERRIDE"
@@ -88,7 +84,6 @@ def analyze_deployment_risk():
 
     except Exception as e:
         logger.error(f"SafeConfig Logic Error: {e}")
-        # 🛡️ Fail-Safe: Always block if the AI engine is unstable (Hackathon best practice)
         return api_response(
             success=True, 
             message="SafeConfig Fail-safe Active: Manual Review Required", 
@@ -96,11 +91,70 @@ def analyze_deployment_risk():
                 "risk_score": 10,
                 "status": "BLOCKED",
                 "reasoning": f"Internal Reasoning Engine Error: {str(e)}",
-                "requires_override": True,
-                "sustainability_score": 5
+                "requires_override": True
             }, 
             status_code=200 
         )
+
+@ai_bp.route("/pre-flight", methods=["POST"])
+@login_required
+def pre_flight_audit():
+    """
+    Dashboard-specific audit. Generates a risk preview before 
+    a user confirms a Production toggle.
+    """
+    # 🔗 Ensure DB is available for the lookup
+    from app.extensions import db
+    from app.models import FeatureFlag
+
+    try:
+        json_data = request.get_json()
+        flag_id = json_data.get("flag_id")
+
+        # 1. Resilient Lookup: Using session.get for modern SQLAlchemy compatibility
+        flag = db.session.get(FeatureFlag, flag_id)
+
+        if not flag:
+            logger.error(f"Pre-flight Fail: Flag ID {flag_id} not found in DB.")
+            return api_response(False, "Flag identity not found", status_code=404)
+
+        # 2. Traffic Context: Don't let a Redis timeout kill the whole request
+        try:
+            traffic_stats = TrafficService.get_live_traffic_context(flag.key, "Production")
+            blast_radius = traffic_stats.get("hits_24h", 0)
+        except Exception as redis_err:
+            logger.warning(f"Telemetry Offline: {redis_err}. Defaulting blast radius to 0.")
+            blast_radius = 0
+
+        # 3. AI Reasoning: Wrapped in a try-except to prevent 500s if LLM keys are missing
+        try:
+            assessment = SafeConfigAgent.run_audit(
+                feature_key=flag.key,
+                environment="Production",
+                code_diff="Dashboard State Toggle",
+                description=f"Pre-deployment check for {flag.key}",
+                blast_radius=blast_radius
+            )
+        except Exception as ai_err:
+            logger.error(f"AI Reasoning Engine Failure: {ai_err}")
+            # 🛡️ THE FAIL-SAFE REPORT (Prevents the 500 error)
+            assessment = {
+                "risk_score": 5,
+                "summary": "AI Audit Engine is currently stabilizing. Manual risk assessment required.",
+                "advice": "Review previous audit logs before confirming.",
+                "risk_level": "medium"
+            }
+
+        return api_response(
+            success=True,
+            message="Pre-flight audit complete",
+            data={"report": assessment},
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.critical(f"🛑 Critical Crash in /pre-flight: {str(e)}")
+        return api_response(False, "Internal Node Error. Check Flask terminal.", status_code=500)
 
 @ai_bp.route("/agent-status", methods=["GET"])
 def get_agent_status():
