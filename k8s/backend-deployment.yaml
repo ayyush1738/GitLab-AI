@@ -66,6 +66,8 @@ spec:
                 secretKeyRef:
                   name: gitguardian-secrets
                   key: google-api-key
+            - name: REDIS_URL
+              value: "redis://gitguardian-redis-svc:6379"
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:

@@ -22,26 +22,20 @@ def create_app():
     global cache
     app = Flask(__name__)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ENVIRONMENT DETECTION
-    # Controls security toggles between local dev and Cloud Run production.
-    # ─────────────────────────────────────────────────────────────────────────
     is_production = os.getenv("FLASK_ENV", "development") == "production"
-
+    
     # ─────────────────────────────────────────────────────────────────────────
     # SECURITY FLIP: In production (Cloud Run + HTTPS), cookies MUST be Secure.
-    # In development (HTTP + 127.0.0.1), Secure=False allows local testing.
-    # OAUTHLIB_INSECURE_TRANSPORT is only set in development — production uses
-    # HTTPS termination at the Cloud Run load balancer, so it must be unset.
+    # If using a raw GKE External IP (HTTP), we must allow insecure cookies.
     # ─────────────────────────────────────────────────────────────────────────
-    if is_production:
-        # Production: enforce HTTPS cookies, NEVER allow insecure OAuth transport
-        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
-        cookie_secure = True
-    else:
-        # Development: allow HTTP cookies and insecure OAuth over 127.0.0.1
+    base_url = os.getenv("BASE_URL", "http://127.0.0.1:5000")
+    cookie_secure = base_url.startswith("https://")
+    
+    if not cookie_secure:
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-        cookie_secure = False
+        logging.warning("⚠️ Running over HTTP: Allowing insecure OAuth transport and cookies.")
+    else:
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
 
     # 1. Base Configuration & Security
     app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
