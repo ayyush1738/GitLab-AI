@@ -22,7 +22,7 @@ spec:
           image: us-central1-docker.pkg.dev/adroit-agent-491312-g4/gitguardian/backend:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 5000
+            - containerPort: 8080
           env:
             - name: FLASK_ENV
               value: "production"
@@ -82,12 +82,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /api/ai/agent-status
-              port: 5000
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/ai/agent-status
-              port: 5000
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 15
