@@ -88,7 +88,7 @@ def system_status():
     """
     return {
         "status": "online",
-        "engine": "SafeConfig AI 1.0",
+        "engine": "GitGuardian AI 1.0",
         "database": "connected",
         "region": "jaipur-in-west-1",
         "environment": os.environ.get("FLASK_ENV", "production")
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     logger.info(f"BASE_URL: {os.getenv('BASE_URL', 'http://127.0.0.1:5000')}")
     logger.info(f"FRONTEND_URL: {os.getenv('FRONTEND_URL', 'http://127.0.0.1:3000')}")
     logger.info(f"OAUTHLIB_INSECURE_TRANSPORT: {os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', 'unset')}")
-    logger.info(f"SafeConfig AI Backend starting on 0.0.0.0:{port} ...")
+    logger.info(f"GitGuardian AI Backend starting on 0.0.0.0:{port} ...")
 
     app.run(
         # STRICT ALIGNMENT: Start exactly on host='127.0.0.1' as requested.

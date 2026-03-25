@@ -131,9 +131,9 @@ def create_app():
              "http://127.0.0.1:3001"
          ],
          supports_credentials=True,
-         allow_headers=["Content-Type", "Authorization", "X-SafeConfig-Source"],
+         allow_headers=["Content-Type", "Authorization", "X-GitGuardian-Source"],
          methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-         expose_headers=["X-SafeConfig-Source"])
+         expose_headers=["X-GitGuardian-Source"])
 
     # 3. Resilient Redis Initialization
     redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
@@ -211,7 +211,7 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    logging.info(f"🌍 SafeConfig AI initialized | env={'production' if is_production else 'development'}")
+    logging.info(f"🌍 GitGuardian AI initialized | env={'production' if is_production else 'development'}")
     logging.info(f"🔗 BASE_URL={base_url} | FRONTEND_URL={frontend_url}")
     logging.info(f"🔑 GitLab redirect URI: {gitlab_redirect_url}")
 
