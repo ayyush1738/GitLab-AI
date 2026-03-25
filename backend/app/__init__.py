@@ -50,14 +50,13 @@ def create_app():
     parsed_domain = urlparse(base_url).hostname
 
     app.config.update(
-        # SESSION PERSISTENCE: Lax allows the cookie to travel on the GitLab
-        # redirect (top-level navigation). Secure flips based on environment.
-        SESSION_COOKIE_DOMAIN=parsed_domain,
-        SESSION_COOKIE_SAMESITE="Lax",
-        SESSION_COOKIE_SECURE=cookie_secure,
+        # SESSION PERSISTENCE: 'None' is required for cross-domain AJAX (Vercel -> Cloud Run).
+        # Secure must be True for SameSite=None to work in modern browsers.
+        SESSION_COOKIE_SAMESITE="None",
+        SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        REMEMBER_COOKIE_SAMESITE="Lax",
-        REMEMBER_COOKIE_SECURE=cookie_secure,
+        REMEMBER_COOKIE_SAMESITE="None",
+        REMEMBER_COOKIE_SECURE=True,
         PERMANENT_SESSION_LIFETIME=86400,
         SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
