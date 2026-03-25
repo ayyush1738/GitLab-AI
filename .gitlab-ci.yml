@@ -9,7 +9,7 @@ variables:
   # Note: GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, and GCP_SERVICE_ACCOUNT 
   # are injected directly from GitLab Settings > CI/CD > Variables.
 
-# ðŸš€ Job 1: Build & Push Backend Image to Google Artifact Registry
+# Job 1: Build & Push Backend Image to Google Artifact Registry
 build-images:
   stage: build
   image: google/cloud-sdk:alpine
@@ -33,8 +33,8 @@ build-images:
     - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/.gcp-credentials.json
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
   script:
-    # ðŸ›¡ï¸ Failsafe check
-    - if [ -z "$GCP_PROJECT_ID" ] || [ "$GCP_PROJECT_ID" = "\$GCP_PROJECT_ID" ]; then echo "âŒ ERROR - GCP_PROJECT_ID is missing from GitLab CI Variables!"; exit 1; fi
+    # Failsafe check
+    - if [ -z "$GCP_PROJECT_ID" ] || [ "$GCP_PROJECT_ID" = "\$GCP_PROJECT_ID" ]; then echo "ERROR - GCP_PROJECT_ID is missing from GitLab CI Variables!"; exit 1; fi
     
     # Force lowercase for Docker compatibility
     - export PROJECT_LOWER=$(echo "$GCP_PROJECT_ID" | tr '[:upper:]' '[:lower:]')
@@ -47,7 +47,7 @@ build-images:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# ðŸ¤– Job 2: Audit - Triggers the GitLab Agent to analyze Risk using Anthropic / Gemini
+# Job 2: Audit - Triggers the GitLab Agent to analyze Risk using Anthropic / Gemini
 agent-risk-audit:
   stage: trigger-agent
   image: curlimages/curl:latest
@@ -55,7 +55,7 @@ agent-risk-audit:
     - |
       echo "Triggering GitGuardian AI Agent..."
       # NOTE: On the VERY FIRST push, this will fail because the backend isn't live.
-      # That is OKâ€”it's a demonstration of the "Fail-Safe" logic.
+      # That is OK - it's a demonstration of the "Fail-Safe" logic.
       curl -X POST "http://gitguardian-backend-svc.gitguardian-agent.svc.cluster.local/api/ai/analyze-risk" \
         -H "Content-Type: application/json" \
         -H "X-GitGuardian-Agent-Token: $GITLAB_AGENT_TOKEN" \
@@ -64,11 +64,11 @@ agent-risk-audit:
           "environment": "Production",
           "code_diff": "Commit '$CI_COMMIT_SHORT_SHA' - Automated Deployment Pipeline Trigger",
           "description": "Pre-deployment blast radius audit."
-        }' || echo "âš ï¸  AI Audit unreachable. This is expected on the VERY FIRST deployment."
+        }' || echo "AI Audit unreachable. This is expected on the VERY FIRST deployment."
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# â˜¸ï¸ Job 3: GitOps Sync via GitLab Agent for Kubernetes
+# Job 3: GitOps Sync via GitLab Agent for Kubernetes
 deploy-to-gke:
   stage: deploy
   image: bitnami/kubectl:latest
