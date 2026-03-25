@@ -81,7 +81,7 @@ export const POLLING_INTERVALS = {
  * Used for Global SEO and Google Cloud Prize attribution.
  */
 export const APP_CONFIG = {
-  NAME: "SafeConfig AI",
+  NAME: "GitGuardian AI",
   VERSION: "1.0.0-PROD",
   DESCRIPTION: "AI-Orchestrated Configuration Guardrails",
   REGION: "Jaipur (IN-WEST-1)",

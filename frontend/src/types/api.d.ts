@@ -56,7 +56,7 @@ export interface AiBlockError {
   message: string;
   data: {
     report: AIAssessment;
-    blocked_by: "SafeConfig_Agent_v1";
+    blocked_by: "GitGuardian_Agent_v1";
   }
 }
 

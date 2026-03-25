@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { UserRole, ENVIRONMENTS } from "@/lib/constants";
 
 /**
- * 🎛️ SafeConfig Global Store
+ * 🎛️ GitGuardian Global Store
  * Purpose: Manages non-sensitive UI state and layout preferences.
  * Security: Persists only layout data; roles/auth are handled by useAuth hook.
  */
@@ -64,7 +64,7 @@ export const useConfigStore = create<ConfigState>()(
         }),
     }),
     {
-      name: "safeconfig-ui-cache",
+      name: "gitguardian-ui-cache",
       storage: createJSONStorage(() => localStorage),
       
       // 🛡️ Partialization Logic:

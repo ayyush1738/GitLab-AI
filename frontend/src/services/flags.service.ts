@@ -38,7 +38,7 @@ export const FlagsService = {
 
   /**
    * 🔄 Toggle Flag Status (AI Intercepted)
-   * The core of the 'SafeConfig' Governance model.
+   * The core of the 'GitGuardian' Governance model.
    * This PATCH request triggers the Claude 3.5 Sonnet risk assessment in the backend.
    */
   toggleStatus: async (
@@ -60,7 +60,7 @@ export const FlagsService = {
       if (error.response?.status === 403) {
         const report = error.response.data?.data?.report;
         console.warn(
-          `[SafeConfig AI] Governance Block: ${error.response.data.message}`, 
+          `[GitGuardian AI] Governance Block: ${error.response.data.message}`, 
           report
         );
       }

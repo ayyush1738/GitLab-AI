@@ -1,7 +1,7 @@
 import axios from "axios";
 
 /**
- * 🛰️ SafeConfig AI API Client
+ * 🛰️ GitGuardian AI API Client
  * Purpose: Centralized Axios instance for communicating with the Flask backend.
  * Features: Automatic Session Sync (Cookies), 401 Interception, and CORS Handshaking.
  */
@@ -16,7 +16,7 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
     // 🏷️ Identify requests for Audit logs & Jaipur Node telemetry
-    "X-SafeConfig-Source": "SafeConfig-Dashboard-v1",
+    "X-GitGuardian-Source": "GitGuardian-Dashboard-v1",
   },
   // ⏱️ AI Audits can be slow; 15s timeout prevents premature cancellation
   timeout: 15000, 
@@ -35,7 +35,7 @@ api.interceptors.response.use(
       const currentOrigin = typeof window !== "undefined" ? window.location.origin : "N/A";
 
       console.error(
-        `📡 [SafeConfig AI] Node Unreachable!\n` +
+        `📡 [GitGuardian AI] Node Unreachable!\n` +
         `Target: ${apiUrl}\n` +
         `Origin: ${currentOrigin}\n` +
         `Possible Cause: CORS Preflight Block or Flask is down.`
@@ -50,7 +50,7 @@ api.interceptors.response.use(
     const isLoginPage = typeof window !== "undefined" && window.location.pathname === "/login";
 
     if (isUnauthorized && !isLoginPage) {
-      console.warn("🔐 [SafeConfig AI] Session Expired. Redirecting to login...");
+      console.warn("🔐 [GitGuardian AI] Session Expired. Redirecting to login...");
       
       if (typeof window !== "undefined") {
         // Full reload ensures all React state/context is cleared safely

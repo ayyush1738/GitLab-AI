@@ -9,7 +9,7 @@ import { AIAssessment } from "@/types/models";
 
 /**
  * 🧠 AI Governance Service
- * Purpose: Centralized gateway for SafeConfig's Dual-Agent Orchestration.
+ * Purpose: Centralized gateway for GitGuardian's Dual-Agent Orchestration.
  * 🏗️ Strategy:
  * - Claude 3.5 Sonnet: Primary Logic & Risk Auditor.
  * - Gemini 1.5 Flash: Sustainability & Efficiency Auditor.
@@ -27,7 +27,7 @@ export const AiService = {
       );
       return res.data.data;
     } catch (error) {
-      console.error("🛡️ AI Analysis Failed: Check SafeConfig Agent connectivity.", error);
+      console.error("🛡️ AI Analysis Failed: Check GitGuardian Agent connectivity.", error);
       throw error;
     }
   },

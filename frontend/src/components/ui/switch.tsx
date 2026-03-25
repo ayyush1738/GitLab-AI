@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * 🎚️ Custom Security Switch
- * Purpose: The primary trigger for 'SafeConfig' AI-guarded toggles.
+ * Purpose: The primary trigger for 'GitGuardian' AI-guarded toggles.
  * Features: High-contrast emerald/indigo states and focus-ring offsets for accessibility.
  */
 const Switch = React.forwardRef<

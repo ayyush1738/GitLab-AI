@@ -59,7 +59,7 @@ export function formatCompactNumber(number: number) {
 /**
  * 🛡️ Security Style Mapper
  * Maps AIAssessment risk_level to a palette of Tailwind classes.
- * Optimized for the SafeConfig 'Command Center' aesthetic.
+ * Optimized for the GitGuardian 'Command Center' aesthetic.
  */
 export function getRiskStyles(level: 'low' | 'medium' | 'high' | string) {
   const normalized = level.toLowerCase();

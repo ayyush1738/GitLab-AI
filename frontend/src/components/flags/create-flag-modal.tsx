@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Terminal, ShieldPlus, Loader2, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 
 /**
  * 🛡️ Create Flag Modal
@@ -101,7 +101,7 @@ export function CreateFlagModal({ isOpen, onClose }: { isOpen: boolean, onClose:
           <div className="bg-indigo-500/5 border border-indigo-500/10 p-4 rounded-2xl flex gap-3">
             <Info className="text-indigo-500 w-4 h-4 mt-0.5 shrink-0" />
             <p className="text-[10px] text-slate-400 leading-relaxed">
-              Upon initialization, <span className="text-indigo-300 font-bold">SafeConfig AI</span> will register this key across all global environments. All future toggles will be gated by a mandatory Claude 3.5 risk assessment.
+              Upon initialization, <span className="text-indigo-300 font-bold">GitGuardian AI</span> will register this key across all global environments. All future toggles will be gated by a mandatory Claude 3.5 risk assessment.
             </p>
           </div>
 

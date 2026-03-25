@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * 🏷️ Badge Variants
- * Optimized for SafeConfig AI's security-first dashboard.
+ * Optimized for GitGuardian AI's security-first dashboard.
  * Designed for readability on #020617 (Deep Navy) background.
  */
 const badgeVariants = cva(

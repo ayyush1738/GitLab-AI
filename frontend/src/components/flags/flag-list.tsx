@@ -19,7 +19,7 @@ interface FlagListProps {
   isLoading: boolean;
   searchQuery: string;
   onOpenCreateModal: () => void;
-  // 🛡️ SafeConfig Governance: Strict typing for the toggle handshake
+  // 🛡️ GitGuardian Governance: Strict typing for the toggle handshake
   onToggleRequest: (flagId: number, envId: number, key: string) => void;
   isToggling: boolean;
 }

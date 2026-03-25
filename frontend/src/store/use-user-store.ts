@@ -3,7 +3,7 @@ import { User } from "@/types/models";
 import { USER_ROLES, UserRole } from "@/lib/constants";
 
 /**
- * 👤 SafeConfig User Store
+ * 👤 GitGuardian User Store
  * Purpose: Manages the 'Live' session state and role-based gating logic.
  * Integration: Populated by the useAuth hook after a successful Flask-Dance handshake.
  */

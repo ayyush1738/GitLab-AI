@@ -13,7 +13,7 @@ export default function LandingPage() {
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <span className="text-xl font-black tracking-tighter uppercase italic">
-            SafeConfig <span className="text-indigo-500 not-italic font-mono text-sm ml-1">AI</span>
+            GitGuardian <span className="text-indigo-500 not-italic font-mono text-sm ml-1">AI</span>
           </span>
         </div>
         <nav className="ml-auto hidden md:flex gap-8 items-center">
@@ -40,7 +40,7 @@ export default function LandingPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
               </span>
-              SafeConfig Duo Agent v1.0 Live
+              GitGuardian Duo Agent v1.0 Live
             </div>
             
             <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-slate-500 leading-[0.9]">
@@ -92,7 +92,7 @@ export default function LandingPage() {
       <footer className="py-16 px-8 border-t border-slate-800/40 bg-[#010409]/50 backdrop-blur-md">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start gap-2">
-            <p className="text-white font-black text-sm uppercase tracking-widest italic">SafeConfig AI</p>
+            <p className="text-white font-black text-sm uppercase tracking-widest italic">GitGuardian AI</p>
             <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">
               Built for the Google Cloud Prize 2026 // Jaipur Node
             </p>

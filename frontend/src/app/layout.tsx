@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SafeConfig AI | Secure Governance Guardrails",
+  title: "GitGuardian AI | Secure Governance Guardrails",
   description: "Enterprise-grade AI configuration auditing with real-time blast radius tracking. Optimized for Google Cloud Run.",
   icons: {
     icon: "/favicon.ico", 

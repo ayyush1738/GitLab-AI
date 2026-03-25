@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
 
 interface User {
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       setUser(null);
       if (error.response?.status !== 401) {
-        console.error("📡 SafeConfig Node unreachable. Check backend at NEXT_PUBLIC_API_URL.");
+        console.error("📡 GitGuardian Node unreachable. Check backend at NEXT_PUBLIC_API_URL.");
       }
     } finally {
       setIsLoading(false);

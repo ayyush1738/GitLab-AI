@@ -65,7 +65,7 @@ export function BlastRadiusChart({ data }: { data: RawTrafficData[] }) {
             barSize={32}
             animationDuration={1500}
           >
-            {chartData.map((entry, index) => (
+            {chartData.map((_, index) => (
               <Cell 
                 key={`cell-${index}`} 
                 fill={index === 0 ? '#6366f1' : '#4f46e5'} 
@@ -81,7 +81,7 @@ export function BlastRadiusChart({ data }: { data: RawTrafficData[] }) {
 
 /**
  * 🕵️ Custom Tooltip
- * Matches the SafeConfig AI Detail Modal aesthetic.
+ * Matches the GitGuardian AI Detail Modal aesthetic.
  */
 function CustomTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {

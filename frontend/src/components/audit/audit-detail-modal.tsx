@@ -7,7 +7,7 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Leaf, Info, Activity, Fingerprint, Cloud, Clock } from "lucide-react";
+import { ShieldCheck, Leaf, Info, Activity, Cloud, Clock } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 
 /**
@@ -46,7 +46,7 @@ export function AuditDetailModal({ audit, isOpen, onClose }: AuditDetailModalPro
                   <div className="bg-indigo-600/20 p-2 rounded-xl">
                     <ShieldCheck className="text-indigo-400 w-5 h-5" />
                   </div>
-                  SafeConfig AI Audit
+                  GitGuardian AI Audit
                 </DialogTitle>
                 <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
                   <Cloud size={10} className="text-indigo-500/50" />

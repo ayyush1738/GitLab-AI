@@ -90,7 +90,7 @@ export function useFlags() {
       const message = err.response?.data?.message || "AI Guardrail Blocked Action";
       
       // Detailed console warning for your demo's "Security Trace"
-      console.warn(`[SafeConfig AI] Governance Reversion: ${message}`, report);
+      console.warn(`[GitGuardian AI] Governance Reversion: ${message}`, report);
     },
 
     /**
