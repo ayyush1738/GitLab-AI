@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AiService } from "@/services/ai.service";
-import { FlagsService } from "@/services/flag.service"; // ✅ Now used for validation
+import { FlagsService } from "@/services/flags.service"; // ✅ Now used for validation
 
 /**
  * 🦊 GitLab Webhook Guardian
