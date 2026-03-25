@@ -11,6 +11,7 @@ import {
   Loader2,
   RefreshCw
 } from "lucide-react";
+import Link from "next/link";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { BlastRadiusChart } from "@/components/dashboard/blast-radius-chart";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,23 @@ export default function DashboardOverview() {
     },
     refetchInterval: 15000, // Frequent polling for the "Live" demo feel
   });
+
+  // 2. Fetch Logs to compute real pending blocks
+  const { data: logs } = useQuery({
+    queryKey: ["logs"],
+    queryFn: async () => {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/flags/logs`, { 
+        withCredentials: true 
+      });
+      return res.data.data as any[];
+    },
+    refetchInterval: 15000,
+  });
+
+  const pendingCount = logs 
+    ? logs.filter((l) => (l.action && l.action.toLowerCase().includes('block')) || l.risk >= 8).length 
+    : 0;
+
 
   const totalHits = analytics?.reduce((acc, curr) => acc + curr.hits, 0) || 0;
 
@@ -124,11 +142,13 @@ export default function DashboardOverview() {
             <Zap className="absolute right-[-15px] top-[-15px] w-32 h-32 opacity-20 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-700" />
             <h4 className="font-black text-xl mb-2 tracking-tight">Manager Actions</h4>
             <p className="text-indigo-100 text-sm mb-6 relative z-10 leading-relaxed">
-              You have <span className="font-bold text-white underline decoration-white/40">3 pending</span> high-traffic overrides requiring Claude-mitigation review.
+              You have <span className="font-bold text-white underline decoration-white/40">{pendingCount} pending</span> high-traffic overrides requiring Claude-mitigation review.
             </p>
-            <Button className="w-full bg-white text-indigo-600 hover:bg-slate-100 font-bold rounded-xl relative z-10 transition-all active:scale-95 shadow-md">
-              Review Pipeline Blocks
-            </Button>
+            <Link href="/audits" className="relative z-10 w-full block">
+              <Button className="w-full bg-white text-indigo-600 hover:bg-slate-100 font-bold rounded-xl transition-all active:scale-95 shadow-md">
+                Review Pipeline Blocks
+              </Button>
+            </Link>
           </div>
 
           <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 backdrop-blur-sm shadow-xl">
@@ -137,10 +157,33 @@ export default function DashboardOverview() {
               Real-time Logs
             </h4>
             <div className="space-y-5">
-               <LogItem user="Arshad" action="Update" flag="billing_engine" status="Blocked" color="text-rose-500" />
-               <LogItem user="Ayush" action="Audit" flag="auth_gateway" status="Passed" color="text-emerald-400" />
-               <LogItem user="GitLab" action="Webhook" flag="ci_cd_gate" status="Warning" color="text-amber-400" />
-               <LogItem user="System" action="Purge" flag="redis_cache" status="Success" color="text-slate-500" />
+              {logs && logs.length > 0 ? (
+                logs.slice(0, 4).map((l: any, i: number) => {
+                  const isBlocked = l.action?.toLowerCase().includes('block') || l.risk >= 8;
+                  const isPassed = l.action?.toLowerCase().includes('pass') || l.action?.toLowerCase().includes('toggle');
+                  let userStr = "System";
+                  if (l.action?.includes('Webhook') || l.action?.includes('AI')) userStr = "GitGuardian";
+                  if (l.action?.includes('MANAGER')) userStr = "Manager";
+                  
+                  return (
+                    <LogItem 
+                      key={i}
+                      user={userStr} 
+                      action={l.action?.replace(/_/g, ' ')} 
+                      flag={l.flag_key || "system"} 
+                      status={isBlocked ? "Blocked" : (isPassed ? "Success" : "Audit")} 
+                      color={isBlocked ? "text-rose-500" : (isPassed ? "text-emerald-400" : "text-amber-400")} 
+                    />
+                  );
+                })
+              ) : (
+                <>
+                  <LogItem user="Arshad" action="Update" flag="billing_engine" status="Blocked" color="text-rose-500" />
+                  <LogItem user="Ayush" action="Audit" flag="auth_gateway" status="Passed" color="text-emerald-400" />
+                  <LogItem user="GitLab" action="Webhook" flag="ci_cd_gate" status="Warning" color="text-amber-400" />
+                  <LogItem user="System" action="Purge" flag="redis_cache" status="Success" color="text-slate-500" />
+                </>
+              )}
             </div>
           </div>
         </div>

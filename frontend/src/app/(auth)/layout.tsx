@@ -31,7 +31,7 @@ export default function AuthLayout({
       {/* 🏛️ Compliance Footer: Narrative layer for the $10,000 Grand Prize */}
       <div className="mt-8 flex flex-col items-center gap-2 select-none">
         <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-medium text-center">
-          Secure SSO via GitLab Identity & SafeConfig AI
+          Secure SSO via GitLab Identity & GitGuardian
         </p>
         
         <div className="flex items-center gap-3 opacity-20">

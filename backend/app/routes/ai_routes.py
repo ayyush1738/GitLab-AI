@@ -1,7 +1,7 @@
 import os
 from flask import Blueprint, request, jsonify
 from flask_login import current_user, login_required
-from app.services.ai_agent import SafeConfigAgent
+from app.services.ai_agent import GitGuardianAgent
 from app.services.traffic_service import TrafficService
 from app.utils.helpers import api_response, format_error
 from loguru import logger
@@ -15,7 +15,7 @@ def analyze_deployment_risk():
     Analyzes code diffs, correlates with Redis traffic, and enforces RBAC.
     """
     # 1. Security Handshake: Check for GitLab Token or Authenticated Session
-    agent_token = request.headers.get("X-SafeConfig-Agent-Token")
+    agent_token = request.headers.get("X-GitGuardian-Agent-Token")
     is_gitlab_request = (agent_token and agent_token == os.getenv("GITLAB_AGENT_TOKEN"))
 
     if not is_gitlab_request and not current_user.is_authenticated:
@@ -43,7 +43,7 @@ def analyze_deployment_risk():
         traffic_stats = TrafficService.get_live_traffic_context(feature_key, environment)
         
         # 3. Invoke the Multi-Model Agent (Claude 3.5 + Gemini 1.5)
-        assessment = SafeConfigAgent.run_audit(
+        assessment = GitGuardianAgent.run_audit(
             feature_key=feature_key,
             environment=environment,
             code_diff=code_diff,
@@ -83,10 +83,10 @@ def analyze_deployment_risk():
         )
 
     except Exception as e:
-        logger.error(f"SafeConfig Logic Error: {e}")
+        logger.error(f"GitGuardian Logic Error: {e}")
         return api_response(
             success=True, 
-            message="SafeConfig Fail-safe Active: Manual Review Required", 
+            message="GitGuardian Fail-safe Active: Manual Review Required", 
             data={
                 "risk_score": 10,
                 "status": "BLOCKED",
@@ -103,7 +103,7 @@ def pre_flight_audit():
     Dashboard-specific audit. Generates a risk preview before 
     a user confirms a Production toggle.
     """
-    # 🔗 Ensure DB is available for the lookup
+    # ðŸ”— Ensure DB is available for the lookup
     from app.extensions import db
     from app.models import FeatureFlag
 
@@ -128,7 +128,7 @@ def pre_flight_audit():
 
         # 3. AI Reasoning: Wrapped in a try-except to prevent 500s if LLM keys are missing
         try:
-            assessment = SafeConfigAgent.run_audit(
+            assessment = GitGuardianAgent.run_audit(
                 feature_key=flag.key,
                 environment="Production",
                 code_diff="Dashboard State Toggle",
@@ -137,7 +137,7 @@ def pre_flight_audit():
             )
         except Exception as ai_err:
             logger.error(f"AI Reasoning Engine Failure: {ai_err}")
-            # 🛡️ THE FAIL-SAFE REPORT (Prevents the 500 error)
+            # ðŸ›¡ï¸ THE FAIL-SAFE REPORT (Prevents the 500 error)
             assessment = {
                 "risk_score": 5,
                 "summary": "AI Audit Engine is currently stabilizing. Manual risk assessment required.",
@@ -153,14 +153,14 @@ def pre_flight_audit():
         )
 
     except Exception as e:
-        logger.critical(f"🛑 Critical Crash in /pre-flight: {str(e)}")
+        logger.critical(f"ðŸ›‘ Critical Crash in /pre-flight: {str(e)}")
         return api_response(False, "Internal Node Error. Check Flask terminal.", status_code=500)
 
 @ai_bp.route("/agent-status", methods=["GET"])
 def get_agent_status():
     """Health check for the Reasoning Engine."""
     return jsonify({
-        "agent": "SafeConfig Duo",
+        "agent": "GitGuardian Duo",
         "models": ["Claude-3.5-Sonnet", "Gemini-1.5-Flash"],
         "governance_mode": "RBAC_ENFORCED",
         "region": "jaipur-in-west-1",

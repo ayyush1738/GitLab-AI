@@ -4,16 +4,12 @@ stages:
   - deploy
 
 variables:
-  # GCP Identity Federation - Setup required in GitLab Portal
-  GCP_PROJECT_ID: $GCP_PROJECT_ID 
-  GCP_WORKLOAD_IDENTITY_PROVIDER: $GCP_WORKLOAD_IDENTITY_PROVIDER
-  GCP_SERVICE_ACCOUNT: $GCP_SERVICE_ACCOUNT
-  BACKEND_IMAGE: us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend:$CI_COMMIT_SHORT_SHA
-  
   # Agent config
   KUBE_CONTEXT: $CI_PROJECT_PATH:gitguardian
+  # Note: GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, and GCP_SERVICE_ACCOUNT 
+  # are injected directly from GitLab Settings > CI/CD > Variables.
 
-# 🚀 Job 1: Build & Push Backend Image to Google Artifact Registry
+# ðŸš€ Job 1: Build & Push Backend Image to Google Artifact Registry
 build-images:
   stage: build
   image: google/cloud-sdk:alpine
@@ -37,22 +33,30 @@ build-images:
     - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/.gcp-credentials.json
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
   script:
+    # ðŸ›¡ï¸ Failsafe check
+    - if [ -z "$GCP_PROJECT_ID" ] || [ "$GCP_PROJECT_ID" = "\$GCP_PROJECT_ID" ]; then echo "âŒ ERROR - GCP_PROJECT_ID is missing from GitLab CI Variables!"; exit 1; fi
+    
+    # Force lowercase for Docker compatibility
+    - export PROJECT_LOWER=$(echo "$GCP_PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+    - export BACKEND_IMAGE="us-central1-docker.pkg.dev/${PROJECT_LOWER}/gitguardian/backend:$CI_COMMIT_SHORT_SHA"
+    - export LATEST_IMAGE="us-central1-docker.pkg.dev/${PROJECT_LOWER}/gitguardian/backend:latest"
+    
     # Build Backend
-    - docker build -t $BACKEND_IMAGE -t us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend:latest ./backend
-    - docker push us-central1-docker.pkg.dev/$GCP_PROJECT_ID/safeconfig/backend --all-tags
+    - docker build -t $BACKEND_IMAGE -t $LATEST_IMAGE ./backend
+    - docker push us-central1-docker.pkg.dev/${PROJECT_LOWER}/gitguardian/backend --all-tags
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# 🤖 Job 2: Audit - Triggers the GitLab Agent to analyze Risk using Anthropic / Gemini
+# ðŸ¤– Job 2: Audit - Triggers the GitLab Agent to analyze Risk using Anthropic / Gemini
 agent-risk-audit:
   stage: trigger-agent
   image: curlimages/curl:latest
   script:
     - |
-      echo "Triggering SafeConfig AI Agent..."
-      curl -X POST "http://safeconfig-backend-svc.safeconfig-agent.svc.cluster.local/api/ai/analyze-risk" \
+      echo "Triggering GitGuardian AI Agent..."
+      curl -X POST "http://gitguardian-backend-svc.gitguardian-agent.svc.cluster.local/api/ai/analyze-risk" \
         -H "Content-Type: application/json" \
-        -H "X-SafeConfig-Agent-Token: $GITLAB_AGENT_TOKEN" \
+        -H "X-GitGuardian-Agent-Token: $GITLAB_AGENT_TOKEN" \
         -d '{
           "feature_key": "deployment_'$CI_COMMIT_SHORT_SHA'",
           "environment": "Production",
@@ -62,7 +66,7 @@ agent-risk-audit:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# ☸️ Job 3: GitOps Sync via GitLab Agent for Kubernetes
+# â˜¸ï¸ Job 3: GitOps Sync via GitLab Agent for Kubernetes
 deploy-to-gke:
   stage: deploy
   image: bitnami/kubectl:latest
@@ -79,6 +83,6 @@ deploy-to-gke:
     - sed -i "s|latest|$CI_COMMIT_SHORT_SHA|g" k8s/backend-deployment.yaml
     - kubectl apply -f k8s/backend-deployment.yaml
     
-    - kubectl rollout status deployment/safeconfig-backend -n safeconfig-agent
+    - kubectl rollout status deployment/gitguardian-backend -n gitguardian-agent
   rules:
     - if: $CI_COMMIT_BRANCH == "main"

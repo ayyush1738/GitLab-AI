@@ -66,7 +66,7 @@ class FlagService:
         Interceptors toggles, checks AI risk, and enforces Manager Overrides.
         """
         # ✅ DEFERRED IMPORTS to prevent circular dependency
-        from app.services.ai_agent import SafeConfigAgent
+        from app.services.ai_agent import GitGuardianAgent
         from app.services.traffic_service import get_live_traffic
 
         flag = FeatureFlag.query.get(flag_id)
@@ -82,7 +82,7 @@ class FlagService:
         ai_report = None
         if env.name.lower() == "production":
             try:
-                ai_report = SafeConfigAgent.run_audit(
+                ai_report = GitGuardianAgent.run_audit(
                     feature_key=flag.key,
                     environment=env.name,
                     code_diff="[DASHBOARD_TOGGLE_REQUEST]",

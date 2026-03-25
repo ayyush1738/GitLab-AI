@@ -94,7 +94,7 @@ export default function LoginPage() {
       </div>
       
       <p className="mt-4 text-center text-[10px] text-slate-600 uppercase tracking-widest">
-        SafeConfig AI Governance Engine v1.0
+        GitGuardian Governance Engine v1.0
       </p>
     </div>
   );

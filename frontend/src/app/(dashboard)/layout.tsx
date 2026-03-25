@@ -58,7 +58,7 @@ export default function DashboardLayout({
               <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/20">
                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-white tracking-tight text-sm uppercase italic">SafeConfig AI</span>
+              <span className="font-bold text-white tracking-tight text-sm uppercase italic">GitGuardian</span>
             </div>
             <Button 
               variant="ghost" 
