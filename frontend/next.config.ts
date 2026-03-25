@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* 🚀 SafeConfig AI Enterprise Configuration */
+  /* 🚀 GitGuardian AI Enterprise Configuration */
   
   images: {
     remotePatterns: [
@@ -25,16 +25,18 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
+    // 🛡️ ANTI-GRAVITY FIX: Added fallback URL to prevent Vercel build crash when env is missing
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-gitguardian.vercel.app';
+    
     return [
       {
         source: '/api/proxy/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`,
+        destination: `${backendUrl}/:path*`,
       },
     ];
   },
 
   reactStrictMode: true,
-  // 🗑️ swcMinify: true, // REMOVED: This is now the default behavior!
   
   env: {
     NEXT_PUBLIC_APP_REGION: 'IN-WEST-1',
