@@ -73,11 +73,11 @@ spec:
                   key: anthropic-api-key
           # ðŸŒ¿ RESOURCE BUDGET: Capped to 256Mi RAM and 200m CPU (Green Software Prize Alignment)
           resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
             limits:
-              cpu: "200m"
+              cpu: "500m"
+              memory: "1Gi"
+            requests:
+              cpu: "100m"
               memory: "256Mi"
           livenessProbe:
             httpGet:
