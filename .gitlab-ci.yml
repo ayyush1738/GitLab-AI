@@ -74,7 +74,9 @@ agent-risk-audit:
 # Job 3: GitOps Sync via GitLab Agent for Kubernetes
 deploy-to-gke:
   stage: deploy
-  image: bitnami/kubectl:latest
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
   environment:
     name: production
   script:
