@@ -159,17 +159,11 @@ def create_app():
 
     # 5. GitLab OAuth Setup
     # ─────────────────────────────────────────────────────────────────────────
-    # ANONYMOUS HANDSHAKE FIX: user_required=False lets Flask-Dance persist the
-    # token to SQLAlchemy BEFORE login_user() is called. Without this, the
-    # storage layer raises a ValueError because current_user is AnonymousUser.
+    # DUAL-SHIELD AUTH: We manually handle user creation and token syncing in 
+    # auth_routes.py (using signals). We skip SQLAlchemyStorage here to avoid 
+    # IntegrityErrors with our custom OAuth model requirements.
     # ─────────────────────────────────────────────────────────────────────────
-    storage = SQLAlchemyStorage(
-        OAuth,
-        db.session,
-        user=current_user,
-        user_required=False
-    )
-
+    
     # DYNAMIC REDIRECT: Use the production BASE_URL if available
     gitlab_redirect_url = f"{base_url.rstrip('/')}/login/gitlab/authorized"
 
@@ -179,7 +173,7 @@ def create_app():
         scope=["read_user", "openid", "profile", "email"],
         redirect_url=gitlab_redirect_url,
         redirect_to="auth.gitlab_success",
-        storage=storage
+        # storage=None (Defaults to flask.session)
     )
 
     # API TUNNEL FIX: Override default base_url so blueprint.session.get("/user")
