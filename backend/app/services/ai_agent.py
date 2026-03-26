@@ -38,10 +38,10 @@ class GitGuardianAgent:
         Parallelizes with Gemini 1.5 Flash for Sustainability scoring.
         """
         
-        # 1. Initialize Gemini 1.5 Pro (Security Specialist)
-        # 🧪 FALLBACK: Switched from Anthropic to Gemini due to credit depletion.
+        # 1. Initialize Gemini 1.5 Flash (Security Specialist)
+        # 🧪 COMPATIBILITY: Switched to 'flash' as 'pro' returned a 404 in this environment.
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro", 
+            model="gemini-1.5-flash", 
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0
         )
