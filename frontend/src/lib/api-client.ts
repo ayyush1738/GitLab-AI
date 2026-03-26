@@ -43,24 +43,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 2. Handle 401 (Session Expired / Unauthorized)
-    const isUnauthorized = error.response?.status === 401;
-    
-    // 3. Prevent infinite redirect loops
-    // We don't redirect if already on /login, OR if we are on the /dashboard transition
-    // because the cookie might still be propagating in cross-domain environments.
-    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
-    const isLoginPage = pathname === "/login";
-    const isTransitioning = pathname === "/dashboard" || pathname === "/";
-
-    if (isUnauthorized && !isLoginPage && !isTransitioning) {
-      console.warn("🔐 [GitGuardian AI] Session Expired. Redirecting to login...");
-      
-      if (typeof window !== "undefined") {
-        // Full reload ensures all React state/context is cleared safely
-        window.location.href = "/login";
-      }
-    }
+    // 🛑 [SAFEGUARD] Global redirect disabled to prevent loops.
+    // Auth is now managed exclusively by components and AuthContext hooks.
 
     return Promise.reject(error);
   }
