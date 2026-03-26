@@ -38,10 +38,11 @@ class GitGuardianAgent:
         Parallelizes with Gemini 1.5 Flash for Sustainability scoring.
         """
         
-        # 1. Initialize Claude 3.5 (Security Specialist)
-        llm = ChatAnthropic(
-            model="claude-3-5-sonnet-latest", 
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+        # 1. Initialize Gemini 1.5 Pro (Security Specialist)
+        # 🧪 FALLBACK: Switched from Anthropic to Gemini due to credit depletion.
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-pro", 
+            google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0
         )
 
