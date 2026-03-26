@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, redirect, url_for, session, jsonify, current_app
+from flask import Blueprint, redirect, url_for, session, jsonify, current_app, request
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy.orm.exc import NoResultFound
 from loguru import logger
@@ -10,6 +10,18 @@ from app.extensions import db
 from app.models import User, OAuth
 
 auth_bp = Blueprint("auth", __name__)
+
+@auth_bp.before_app_request
+def bypass_login_if_already_authenticated():
+    """
+    ⚡ LOOP SHIELD: If the user is already authenticated but somehow 
+    lands on the GitLab login start point, skip the handshake and 
+    catapult them straight to the Dashboard.
+    """
+    if request.path == "/login/gitlab" and current_user.is_authenticated:
+        logger.info(f"🔄 User '{current_user.email}' already authenticated. Bypassing GitLab handshake.")
+        frontend_url = os.environ.get("FRONTEND_URL", "https://gitguardian.vercel.app")
+        return redirect(f"{frontend_url.rstrip('/')}/dashboard")
 
 # --- IDENTITY ENDPOINTS ---
 
