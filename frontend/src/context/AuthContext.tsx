@@ -64,11 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      * 🔐 The GitLab SSO Handshake Trigger
      * Redirects the browser to the Flask-Dance blueprint.
      */
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    
-    // 🏛️ PRO-TIP: We use window.location.href because this is a full page 
-    // redirect to the backend/GitLab, not a Next.js internal route.
-    window.location.href = `${API_URL}/login/gitlab`;
+    // 🏛️ VERCEL PROXY: Using a relative path makes the browser treat the 
+    // login flow as "First-Party," ensuring cookies aren't blocked.
+    window.location.href = "/login/gitlab";
   };
 
   const logout = async () => {
