@@ -6,8 +6,8 @@ import axios from "axios";
  * Features: Automatic Session Sync (Cookies), 401 Interception, and CORS Handshaking.
  */
 export const api = axios.create({
-  // ⚡ USING VERCEL PROXY: Relative baseURL ensures cookies stay First-Party.
-  baseURL: "",
+  // 🛰️ DIRECT CONNECTION: Reverting to direct backend URL for stability.
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://gitguardian-backend-1671867040.us-central1.run.app",
   
   // 🛡️ CRITICAL: Mandatory for Flask-Login/Flask-Dance cookie persistence.
   // This allows the browser to send the 'session' cookie with every request.

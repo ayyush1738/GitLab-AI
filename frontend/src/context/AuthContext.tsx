@@ -64,9 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      * 🔐 The GitLab SSO Handshake Trigger
      * Redirects the browser to the Flask-Dance blueprint.
      */
-    // 🏛️ VERCEL PROXY: Using a relative path makes the browser treat the 
-    // login flow as "First-Party," ensuring cookies aren't blocked.
-    window.location.href = "/login/gitlab";
+    // 🔐 DIRECT AUTH: Redirecting directly to the backend to ensure a stable 
+    // OAuth state. Make sure NEXT_PUBLIC_API_URL is your Run.app domain.
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://gitguardian-backend-1671867040.us-central1.run.app";
+    window.location.href = `${API_URL}/login/gitlab`;
   };
 
   const logout = async () => {
