@@ -178,6 +178,7 @@ def create_app():
         client_secret=os.getenv("GITLAB_SECRET"),
         scope=["read_user", "openid", "profile", "email"],
         redirect_url=gitlab_redirect_url,
+        redirect_to="auth.gitlab_success",
         storage=storage
     )
 

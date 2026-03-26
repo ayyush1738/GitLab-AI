@@ -47,6 +47,30 @@ def logout():
     logout_user()
     return jsonify({"success": True, "message": "Logged out successfully"}), 200
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FINAL OAUTH EXIT ROUTES
+# ─────────────────────────────────────────────────────────────────────────────
+
+@auth_bp.route("/success")
+def gitlab_success():
+    """
+    Definitive Exit point for GitLab OAuth.
+    Flask-Dance redirects here after a successful handshake.
+    """
+    frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
+    logger.info(f"🚀 Auth Success: Redirecting to {frontend_url.rstrip('/')}/dashboard")
+    return redirect(f"{frontend_url.rstrip('/')}/dashboard")
+
+@auth_bp.route("/error")
+def gitlab_error():
+    """
+    Definitive Exit point for GitLab OAuth failures.
+    """
+    error = session.pop("auth_error", "oauth_fail")
+    frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
+    logger.error(f"❌ Auth Error: Redirecting to login with error={error}")
+    return redirect(f"{frontend_url.rstrip('/')}/login?error={error}")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GITLAB OAUTH SIGNAL HANDLERS
@@ -72,7 +96,8 @@ def gitlab_logged_in(blueprint, token):
     """
     if not token:
         logger.error("OAuth failed: No token received from GitLab.")
-        return False
+        session["auth_error"] = "no_token"
+        return
 
     # ── Step 1: Fetch GitLab Profile via API ─────────────────────────────────
     # STRICT ALIGNMENT: Using blueprint.session.get('user') exactly as requested.
@@ -83,14 +108,16 @@ def gitlab_logged_in(blueprint, token):
     if not resp.ok:
         logger.error(f"GitLab API Error: HTTP {resp.status_code}")
         logger.error(f"Response body: {resp.text[:500]}")
-        return False
+        session["auth_error"] = "api_error"
+        return
 
     try:
         gitlab_info = resp.json()
     except Exception as e:
         logger.error(f"Critical: Failed to decode GitLab JSON. Error: {e}")
         logger.error(f"Raw body: {resp.text[:500]}")
-        return False
+        session["auth_error"] = "json_error"
+        return
 
     gitlab_user_id = str(gitlab_info.get("id"))
     gitlab_username = gitlab_info.get("username")
@@ -98,7 +125,8 @@ def gitlab_logged_in(blueprint, token):
 
     if not gitlab_user_id:
         logger.error("GitLab response missing 'id' field.")
-        return False
+        session["auth_error"] = "missing_id"
+        return
 
     # ── Step 2: Match or Create OAuth Link ───────────────────────────────────
     query = OAuth.query.filter_by(
@@ -146,9 +174,8 @@ def gitlab_logged_in(blueprint, token):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Database commit failed during auth: {e}")
-        # 🛡️ REDIRECT: Ensure we never return False, always provide a clean failure path to the frontend.
-        frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-        return redirect(f"{frontend_url.rstrip('/')}/login?error=db_fail")
+        session["auth_error"] = "db_fail"
+        return
 
     # ── Step 4: Finalize Local Session ────────────────────────────────────────
     # remember=True sets a persistent cookie so Next.js withCredentials: true
@@ -156,11 +183,6 @@ def gitlab_logged_in(blueprint, token):
     login_user(user, remember=True)
     logger.success(f"✅ User '{gitlab_username}' authenticated | role: {user.role}")
 
-    # ── Step 5: Redirect to Next.js Dashboard ─────────────────────────────────
-    # DOMAIN UNITY: Default to 127.0.0.1 (not localhost) so the browser
-    # delivers the session cookie correctly to the Next.js client.
-    frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-    return redirect(f"{frontend_url.rstrip('/')}/dashboard")
 
 
 def gitlab_error_handler(blueprint, error, error_description=None, **kwargs):
@@ -168,9 +190,8 @@ def gitlab_error_handler(blueprint, error, error_description=None, **kwargs):
     Handles standard OAuth errors emitted by GitLab.
     """
     logger.error(f"OAuth Handshake Error from {blueprint.name}: {error_description}")
-    frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-    # Added .rstrip('/') to prevent double slashes in the redirect
-    return redirect(f"{frontend_url.rstrip('/')}/login?error=oauth_fail")
+    session["auth_error"] = "oauth_fail"
+    return
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INVALID GRANT EXCEPTION HANDLER
