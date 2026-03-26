@@ -47,9 +47,13 @@ api.interceptors.response.use(
     const isUnauthorized = error.response?.status === 401;
     
     // 3. Prevent infinite redirect loops
-    const isLoginPage = typeof window !== "undefined" && window.location.pathname === "/login";
+    // We don't redirect if already on /login, OR if we are on the /dashboard transition
+    // because the cookie might still be propagating in cross-domain environments.
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+    const isLoginPage = pathname === "/login";
+    const isTransitioning = pathname === "/dashboard" || pathname === "/";
 
-    if (isUnauthorized && !isLoginPage) {
+    if (isUnauthorized && !isLoginPage && !isTransitioning) {
       console.warn("🔐 [GitGuardian AI] Session Expired. Redirecting to login...");
       
       if (typeof window !== "undefined") {

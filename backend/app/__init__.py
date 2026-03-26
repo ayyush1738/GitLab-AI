@@ -24,6 +24,11 @@ def create_app():
 
     is_production = os.getenv("FLASK_ENV", "development") == "production"
     
+    # ── PRODUCTION HARDENING ──
+    # Force Flask to use https for external links (redirect_uri) on Cloud Run
+    if is_production:
+        app.config['PREFERRED_URL_SCHEME'] = 'https'
+    
     # ─────────────────────────────────────────────────────────────────────────
     # SECURITY FLIP: In production (Cloud Run + HTTPS), cookies MUST be Secure.
     # If using a raw GKE External IP (HTTP), we must allow insecure cookies.
@@ -72,11 +77,11 @@ def create_app():
     )
 
     # ─────────────────────────────────────────────────────────────────────────
-    # PROXY INTEGRITY: Minimal ProxyFix for Cloud Run.
-    # We only trust the proto (HTTPS) to ensure Flask generates secure URLs.
-    # x_host is removed to prevent internal hostname leaks from the LB.
+    # PROXY INTEGRITY: Full ProxyFix for Cloud Run / Google LB.
+    # We trust one level of headers (for x_for, x_proto, x_host, x_port)
+    # as the Google Load Balancer acts as the first proxy.
     # ─────────────────────────────────────────────────────────────────────────
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
     # 2. Bind Extensions
     db.init_app(app)

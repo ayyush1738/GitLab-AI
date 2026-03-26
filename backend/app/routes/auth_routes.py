@@ -146,7 +146,9 @@ def gitlab_logged_in(blueprint, token):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Database commit failed during auth: {e}")
-        return False
+        # 🛡️ REDIRECT: Ensure we never return False, always provide a clean failure path to the frontend.
+        frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
+        return redirect(f"{frontend_url.rstrip('/')}/login?error=db_fail")
 
     # ── Step 4: Finalize Local Session ────────────────────────────────────────
     # remember=True sets a persistent cookie so Next.js withCredentials: true
@@ -167,7 +169,8 @@ def gitlab_error_handler(blueprint, error, error_description=None, **kwargs):
     """
     logger.error(f"OAuth Handshake Error from {blueprint.name}: {error_description}")
     frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-    return redirect(f"{frontend_url}/login?error=oauth_fail")
+    # Added .rstrip('/') to prevent double slashes in the redirect
+    return redirect(f"{frontend_url.rstrip('/')}/login?error=oauth_fail")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INVALID GRANT EXCEPTION HANDLER
@@ -192,4 +195,5 @@ def handle_invalid_grant(error):
     logger.critical(f"Flask expected this EXPLICIT Redirect URI: {url_for('gitlab.authorized', _external=True)}")
     
     frontend_url = os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000")
-    return redirect(f"{frontend_url}/login?error=invalid_grant")
+    # Using .rstrip('/') to ensure we don't redirect to something like https://app.com//login
+    return redirect(f"{frontend_url.rstrip('/')}/login?error=invalid_grant")
